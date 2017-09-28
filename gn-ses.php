@@ -6,9 +6,13 @@
  * 
  */
 
+require_once("vendor/autoload.php");
 require_once("classes/gn_PluginDB.class.php");
 require_once("classes/SesData.php");
 require_once("classes/Ses.php");
+require_once("classes/GenericAdminPage.php");
+
+
 
 $gnses = new gnaritas\ses\Ses();
 

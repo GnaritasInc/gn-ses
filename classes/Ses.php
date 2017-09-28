@@ -6,59 +6,38 @@ class Ses
 {
     protected $adminCapability = "manage_options";
     protected $adminMenuSlug = "gnses";
+    protected $settings;
 
     function __construct () {
         $this->data = new SesData();
+        $this->settings = \Voce_Settings_API::getInstance();
         $this->homeDir = dirname(dirname(__FILE__));
         $this->includeDir = $this->homeDir . "/includes";
     }
 
-    function wpInit () {
-        add_action('admin_menu', array(&$this, 'adminMenu'));
-        add_action('admin_init', array(&$this, 'adminInit'));
-    }
-
-    function adminMenu () {
+    function wpInit () {        
         
-        add_menu_page("SES Settings", "SES Settings", $this->adminCapability, $this->adminMenuSlug."-main", array(&$this, 'adminPage'));
-        add_submenu_page($this->adminMenuSlug."-main", "SNS Notificaitons", "SNS Notifications", $this->adminCapability, $this->adminMenuSlug."-notifications", array(&$this, 'adminPage'));
+        $this->settings->add_page("SES Settings", "Amazon SES", $this->adminMenuSlug."-main")
+            ->add_group("Email Settings", "gnses_email")
+                ->add_setting("Host", "host")
+                ->group->add_setting("Port", "port")
+                ->group->add_setting("Username", "username")
+                ->group->add_setting("Password", "password");
+
+       $this->setupAdminPages(array(
+            "test-email"=>"Test Email",
+            "notifications"=>"SNS Notifications"
+        ));
+        
     }
 
-    function adminPage () {
-        $slug = preg_replace('/^'.$this->adminMenuSlug.'/', 'admin', trim($_GET['page']));
-        $filename = "$slug.php";       
-
-        if (file_exists($this->includeDir."/$filename")) {
-            $this->includeFile($filename);
+    function setupAdminPages ($pageData) {
+        foreach($pageData as $key=>$title) {
+            $adminPage = new GenericAdminPage($title, $title, $this->adminMenuSlug."-{$key}", $this->adminCapability, '', $this->adminMenuSlug."-main-page");
+            $adminPage->template = $this->includeDir . "/admin-{$key}.php";
         }
     }
-
-    function adminInit () {
-        $this->registerOptions();
-    }
-
-    function registerOptions () {
-        register_setting("gnses_options", "gnses_options", array(&$this, 'validateOptions'));
-        add_settings_section("gnses_main", "SES Settings", array(&$this, 'mainSettingsSection'), "gnses-main");
-        add_settings_field("gnses_host", "Email Host", array(&$this, 'hostField'), "gnses-main", "gnses_main");
-    }
-
-    function hostField () {
-        $options = get_option("gnses_options");
-        echo "<input id='gnses_host' name='gnses_options[host]' size='40' type='text' value='{$options['host']}' />";
-    }
-
-    function mainSettingsSection () {
-        echo "<p>SES Main Settings</p>";
-    }
-
-    function validateOptions ($options) {
-        return $options;
-    }
-
-    function includeFile ($fileName, $context=array()) {
-        include($this->includeDir . "/$fileName");
-    }
+    
 }
 
 
