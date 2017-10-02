@@ -29,7 +29,7 @@ $action = "update_settings";
                 <label for="<?php echo "{$prefix}-port"?>">Port</label>
             </th>
             <td>
-                <input name="<?php echo "{$optionsKey}[port]"; ?>" id="<?php echo "{$prefix}-port"?>" value="{{port}}" class="regular-text" type="text"/>
+                <input name="<?php echo "{$optionsKey}[port]"; ?>" id="<?php echo "{$prefix}-port"?>" value="{{port}}" class="small-text" type="number" min="1" />
             </td>
         </tr>
         <tr>
