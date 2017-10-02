@@ -65,7 +65,35 @@ class Ses
     }
 
     function validateOptions ($options) {
-        return array();
+        $errors = array();
+
+        $fields = array(
+            "host"=>array("callback"=>"isHostname", "msg"=>"Host must be a well-formed internet host name."),
+            "port"=>array("callback"=>"isPosint", "msg"=>"Port must be a positive integer."),
+            "username"=>array("msg"=>"Username is required."),
+            "password"=>array("msg"=>"Password is required.")
+        );
+
+        foreach ($fields as $key=>$fieldInfo) {
+            $callback = array_key_exists("callback", $fieldInfo) ? $fieldInfo['callback'] : "hasInput";
+            if (!$this->$callback($options[$key])) {
+                $errors[] = $fieldInfo['msg'];
+            }
+        }
+
+        return $errors;
+    }
+
+    function isHostname ($str) {
+        return preg_match('/^(?:[a-z0-9][a-z0-9-]*\.)+[a-z0-9-]+$/i', $str);
+    }
+
+    function isPosint ($str) {
+        return preg_match('/^[1-9][0-9]*$/', $str);
+    }
+
+    function hasInput ($str) {
+        return strlen(trim($str)) ? true : false;
     }
 
     function displayMessages () {
@@ -98,7 +126,7 @@ class Ses
     }
 
     function mainPageData ($data) {
-        $data = $this->errors ? $_POST : $this->getOptions();
+        $data = $this->errors ? $_POST[$this->optionsKey] : $this->getOptions();
         return $data;
     }   
     
