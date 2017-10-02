@@ -17,3 +17,6 @@ require_once("classes/GenericAdminPage.php");
 $gnses = new gnaritas\ses\Ses();
 
 add_action("init", array(&$gnses, 'wpInit'));
+
+register_activation_hook(__FILE__, array(&$gnses, "activate"));
+register_deactivation_hook(__FILE__, array(&$gnses, "deactivate"));

@@ -28,6 +28,16 @@ class Ses
         $this->includeDir = $this->homeDir . "/includes";
     }
 
+    function activate () {
+        $this->data->insureTables();
+    }
+
+    function deactivate () {
+        if ($this->getOption("remove_tables")) {
+            $this->data->dropTables();
+        }
+    }
+
     function wpInit () {
        $this->setupAdminPages(array(
             "main"=>array("title"=>"SES Settings", "menu_title"=>"Amazon SES"),
@@ -123,6 +133,11 @@ class Ses
 
     function getOptions () {
         return get_option($this->optionsKey, $this->optionDefaults);
+    }
+
+    function getOption ($key) {
+        $options = get_option($this->optionsKey, $this->optionDefaults);
+        return $options[$key];
     }
 
     function mainPageData ($data) {
