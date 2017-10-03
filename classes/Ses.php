@@ -61,6 +61,29 @@ class Ses
         }
     }
 
+    function test_email () {
+        $formData = array_intersect_key($_POST, array_fill_keys(array("email", "subject", "message"), ""));
+        if ($errors = $this->validateEmailInput($formData)) {
+            $this->errors = $errors;
+            return;
+        }
+
+        $this->setMailerCallback();
+        add_action("wp_mail_failed", array(&$this, "setEmailError"));
+
+        if ($result = wp_mail($formData['email'], $formData['subject'], $formData['message'])) {
+            $this->msg = "Test email sent successfully.";
+        }
+    }
+
+    function validateEmailInput ($data) {
+
+    }
+
+    function setEmailError ($error) {
+        $this->errors[] = "Email failed: ".$error->get_error_message();
+    }
+
     function update_settings () {
         $input = $_POST[$this->optionsKey];
         $newOptions = array_merge(array("suppress_bounce"=>0, "remove_tables"=>0), array_intersect_key($input, $this->optionDefaults));
@@ -162,6 +185,8 @@ class Ses
         $phpmailer->Username = $options['username'];
         $phpmailer->Password = $options['password'];
         $phpmailer->SMTPSecure = "tls";
+
+        $phpmailer->setFrom(get_option("admin_email"), "Test", false );
     }   
     
 }
