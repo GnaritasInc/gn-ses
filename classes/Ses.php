@@ -95,7 +95,7 @@ class Ses
     }
 
     function isHostname ($str) {
-        return preg_match('/^(?:[a-z0-9][a-z0-9-]*\.)+[a-z0-9-]+$/i', $str);
+        return preg_match('/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i', $str);
     }
 
     function isPosint ($str) {
@@ -143,6 +143,22 @@ class Ses
     function mainPageData ($data) {
         $data = $this->errors ? $_POST[$this->optionsKey] : $this->getOptions();
         return $data;
+    }
+
+    function setMailerCallback () {
+        add_action('phpmailer_init', array(&$this, 'setMailerConfig'));
+    }
+
+    function setMailerConfig ($phpmailer) {
+        $options = $this->getOptions();
+
+        $phpmailer->isSMTP();     
+        $phpmailer->Host = $options['host'];
+        $phpmailer->SMTPAuth = true; 
+        $phpmailer->Port = $options['port'];
+        $phpmailer->Username = $options['username'];
+        $phpmailer->Password = $options['password'];
+        $phpmailer->SMTPSecure = "tls";
     }   
     
 }
