@@ -40,8 +40,8 @@ class Ses
 
     function wpInit () {
        $this->setupAdminPages(array(
-            "main"=>array("title"=>"SES Settings", "menu_title"=>"Amazon SES"),
-            "test-email"=>array("title"=>"Test Email", "parent"=>"main"),
+            "main"=>array("title"=>"SES Settings", "menu_title"=>"Amazon SES", "action"=>"update_settings"),
+            "test-email"=>array("title"=>"Test Email", "parent"=>"main", "action"=>"test_email"),
             "notifications"=>array("title"=>"SNS Notifications", "parent"=>"main")
         ));
 
@@ -126,6 +126,9 @@ class Ses
             $adminPage = new GenericAdminPage($title, $menuTitle, $this->prefix."-{$key}", $this->adminCapability, '', $parent);
             $adminPage->template = $this->includeDir . "/admin-{$key}.php";
             $adminPage->plugin = &$this;
+            if (array_key_exists("action", $data)) {
+                $adminPage->action = $data["action"];
+            }
         }
 
         add_filter("gn_admin_page_data_gnses-main", array(&$this, 'mainPageData'));

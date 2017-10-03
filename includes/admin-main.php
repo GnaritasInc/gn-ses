@@ -1,18 +1,5 @@
-<?php 
-$plugin = $this->plugin;
-$optionsKey = $plugin->optionsKey;
-$prefix = $plugin->prefix;
-$action = "update_settings";
-
-?>
-<div class="wrap">
-<h2>SES Settings</h2>
-<?php $plugin->displayMessages();?>
-<form method="POST">
-
-<?php wp_nonce_field($action, $plugin->nonceKey); ?>
-<input type="hidden" name="<?php echo $plugin->adminActionKey; ?>" value="<?php echo $action; ?>"/>
-
+<?php include("_admin_page_open.php"); ?>
+<?php include("_admin_form_open.php"); ?>
 <h2>Email Settings</h2>
 <table class="form-table">
     <tbody>
@@ -74,5 +61,5 @@ $action = "update_settings";
 <p class="submit">
     <input type="submit" value="Save Changes" class="button-primary" />
 </p>
-</form>
-</div>
+<?php include("_admin_form_close.php"); ?>
+<?php include("_admin_page_close.php"); ?>

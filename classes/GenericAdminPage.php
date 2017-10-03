@@ -6,6 +6,7 @@ class GenericAdminPage extends \Voce_Settings_Page
 {    
     public $template;
     public $plugin;
+    public $action = "";
 
     public function display() {       
         $this->renderTemplate();
@@ -13,6 +14,11 @@ class GenericAdminPage extends \Voce_Settings_Page
 
     protected function renderTemplate () {
         $context = apply_filters("gn_admin_page_data_{$this->page_key}", array());
+
+        $plugin = $this->plugin;
+        $optionsKey = $plugin->optionsKey;
+        $prefix = $plugin->prefix;
+        $action = $this->action;
         
         ob_start();
         include($this->template);
