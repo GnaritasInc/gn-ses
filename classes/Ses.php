@@ -77,7 +77,17 @@ class Ses
     }
 
     function validateEmailInput ($data) {
+        $errors = array();
+        foreach ($data as $key=>$value) {            
+            if ($key=='email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) { 
+                $errors[] = "Invalid email address.";
+            }
+            elseif (!$this->hasInput($value)) {
+                $errors[] = ucfirst($key)." is required.";
+            }
+        }
 
+        return $errors;
     }
 
     function setEmailError ($error) {
