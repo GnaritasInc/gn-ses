@@ -2,6 +2,10 @@
 
 namespace gnaritas\ses;
 
+use Aws\Sns\Message;
+use Aws\Sns\MessageValidator;
+use Aws\Sns\Exception;
+
 class Ses
 {
     public $prefix = "gnses";
@@ -47,7 +51,84 @@ class Ses
 
         if (is_admin() && isset($_POST[$this->adminActionKey])) {
             $this->handleAdminPost();
-        }        
+        }
+
+        add_action("wp_ajax_nopriv_sns_notify", array(&$this, "handleSNSNotification"));       
+    }
+
+    function handleSNSNotification () {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            error_log("Not a POST request.");
+            $this->ajaxExit(405);
+        }
+        try {
+            $message = Message::fromRawPostData();
+            $validator = new MessageValidator();
+            $validator->validate($message);
+
+            $this->processSnsMessage($message);
+        }
+        catch (InvalidSnsMessageException $e) {
+            error_log("Invalid SNS message: ".$e->getMessage());
+            $this->ajaxExit(404);
+        }
+        catch (Exception $e) {
+            error_log("Error processing SNS notification: ".$e->getMessage);
+            $this->ajaxExit(500);
+        }
+        
+        $this->ajaxExit(200);
+        
+    }
+
+    function processSnsMessage ($message) {
+        $messageType = $message["Type"];
+        $method = "handle{$messageType}";
+        if (method_exists($this, $method)) {
+            $this->$method($message);
+        }
+        else {
+            throw new Exception("Unsupported SNS message type '$messageType'");
+        }
+    }
+
+    function handleNotification ($message) {
+        $messageData = json_decode($message['Message']);
+        $notificationType = $messageData->notificationType;
+        if ($notificationType=="Bounce") {
+            $this->processBounce($messageData->bounce);
+        }
+        elseif ($notificationType == "Complaint") {
+            $this->processComplaint($messageData->complaint);
+        }
+        else {
+            throw new Exception("Unsupported SES notification '$notificationType'");
+        }
+    }
+
+    function processBounce ($bounce) {
+        $this->data->logBounce($bounce);
+        do_action("gnses_bounce", $bounce);
+    }
+
+    function processComplaint ($complaint) {
+        $this->data->LogComplaint($complaint);
+        do_action("gnses_complaint", $complaint);
+    }
+
+    function handleUnsubscribeConfirmation ($message) {
+        error_log("Unsubscribed from ".$message['TopicArn']);
+        file_get_contents($message['SubscribeURL']);
+    }
+
+    function handleSubscriptionConfirmation ($message) {
+        error_log("Subscribed to ".$message['TopicArn']);
+        file_get_contents($message['SubscribeURL']);
+    }
+
+    function ajaxExit ($status) {
+        status_header($status);
+        exit();
     }
 
     function handleAdminPost () {
