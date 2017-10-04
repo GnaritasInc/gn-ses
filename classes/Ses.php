@@ -278,7 +278,35 @@ class Ses
         $phpmailer->SMTPSecure = "tls";
 
         $phpmailer->setFrom(get_option("admin_email"), "Test", false );
-    }   
+
+        if ($options["suppress_bounce"]) {
+            $this->checkRecipients($phpmailer);
+        }
+    }
+
+    function checkRecipients ($phpmailer) {
+        $recipients = array(
+            "TO"=>$phpmailer->getToAddresses(),
+            "CC"=>$phpmailer->getCcAddresses(),
+            "BCC"=>$phpmailer->getBccAddresses()
+        );
+
+        $phpmailer->clearAllRecipients();        
+        
+        foreach ($recipients as $type=>$addresses) {
+            foreach($addresses as $addressInfo) {
+                $addMethod = ($type == "TO") ? "addAddress" : "add{$type}";
+                list($address, $name) = $addressInfo;               
+                if ($this->data->isSuppressed($address)) {
+                    error_log("gn-ses: Removing suppressed address '$address'");
+                }
+                else {
+                    $phpmailer->$addMethod($address, $name);
+                }
+            }
+        }
+
+    }
     
 }
 

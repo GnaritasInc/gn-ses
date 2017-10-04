@@ -78,4 +78,9 @@ class SesData extends \gn_PluginDB
     function insertNotification ($data) {
         $this->doInsert("notification", $data);
     }
+
+    function isSuppressed ($address) {
+        $sql = "select count(*) from ".$this->tableName("notification")." where email=%s and resend=0";
+        return $this->db->get_var($this->db->prepare($sql, $address));
+    }
 }
