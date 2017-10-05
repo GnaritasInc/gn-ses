@@ -288,7 +288,9 @@ class Ses
         add_action("wp_mail_from", array(&$this, "mailFrom"));
         add_action("wp_mail_from_name", array(&$this, "mailFromName"));
         add_action('phpmailer_init', array(&$this, 'setMailerConfig'));
+        add_action("wp_mail_failed", array(&$this, 'logMailError'));
     }
+
 
     function mailFrom ($address) {
         return $this->getOption("from_address", $address);
@@ -296,6 +298,10 @@ class Ses
 
     function mailFromName ($name) {
         return $this->getOption("from_name", $name);
+    }
+
+    function logMailError ($error) {
+        error_log("gn-ses: Email failed: ".$error->get_error_message());
     }   
 
     function setMailerConfig ($phpmailer) {
@@ -328,12 +334,16 @@ class Ses
                 $addMethod = ($type == "TO") ? "addAddress" : "add{$type}";
                 list($address, $name) = $addressInfo;               
                 if ($this->data->isSuppressed($address)) {
-                    error_log("gn-ses: Removing suppressed address '$address'");
+                    error_log("gn-ses: Removing suppressed address from '$type' field: $address");
                 }
                 else {
                     $phpmailer->$addMethod($address, $name);
                 }
             }
+        }
+
+        if (count($phpmailer->getAllRecipientAddresses()) == 0) {
+            error_log("gn-ses: Warning: Message has no recipients.");
         }
 
     }
