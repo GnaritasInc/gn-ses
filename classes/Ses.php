@@ -13,14 +13,9 @@ class Ses
     public $adminActionKey = "gnses_action";
     public $nonceKey = "gnses_nonce";
     public $optionsKey = "gnses_options";
-    public $optionDefaults = array(
-        "host"=>"",
-        "port"=>"",
-        "username"=>"",
-        "password"=>"",
-        "suppress_bounce"=>1,
-        "remove_tables"=>0
-    );
+    
+    protected $optionDefaults = null;
+
     public $errors = array();
 
     protected $adminActions = array("update_settings", "test_email");
@@ -177,7 +172,7 @@ class Ses
 
     function update_settings () {
         $input = $_POST[$this->optionsKey];
-        $newOptions = array_merge(array("suppress_bounce"=>0, "remove_tables"=>0), array_intersect_key($input, $this->optionDefaults));
+        $newOptions = array_merge(array("suppress_bounce"=>0, "remove_tables"=>0), array_intersect_key($input, $this->getOptionDefaults()));
         if ($errors = $this->validateOptions($newOptions)) {
             $this->errors = $errors;
             return;
@@ -192,6 +187,7 @@ class Ses
         $errors = array();
 
         $fields = array(
+            "from_address"=>array("callback"=>"isEmail", "msg"=>"From address must be a well-formed email address."),
             "host"=>array("callback"=>"isHostname", "msg"=>"Host must be a well-formed internet host name."),
             "port"=>array("callback"=>"isPosint", "msg"=>"Port must be a positive integer."),
             "username"=>array("msg"=>"Username is required."),
@@ -206,6 +202,10 @@ class Ses
         }
 
         return $errors;
+    }
+
+    function isEmail ($str) {
+        return is_email($str);
     }
 
     function isHostname ($str) {
@@ -249,12 +249,32 @@ class Ses
     }
 
     function getOptions () {
-        return get_option($this->optionsKey, $this->optionDefaults);
+        $defaults = $this->getOptionDefaults();
+        $savedOptions = get_option($this->optionsKey, $defaults);
+
+        return array_merge($defaults, $savedOptions);
     }
 
     function getOption ($key) {
-        $options = get_option($this->optionsKey, $this->optionDefaults);
+        $options = $this->getOptions();
         return $options[$key];
+    }
+
+    function getOptionDefaults () {
+        if (is_null($this->optionDefaults)) {
+            $this->optionDefaults = array(
+                "host"=>"",
+                "port"=>"",
+                "username"=>"",
+                "password"=>"",
+                "suppress_bounce"=>1,
+                "remove_tables"=>0,
+                "from_address"=>get_option('admin_email'),
+                "from_name"=>""
+            );
+        }
+
+        return $this->optionDefaults;
     }
 
     function mainPageData ($data) {

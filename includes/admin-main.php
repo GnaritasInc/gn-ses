@@ -5,6 +5,22 @@
     <tbody>
         <tr>
             <th scope="row">
+                <label for="<?php echo "{$prefix}-from_address"?>">From address</label>
+            </th>
+            <td>
+                <input name="<?php echo "{$optionsKey}[from_address]"; ?>" id="<?php echo "{$prefix}-from_address"?>" value="{{from_address}}" class="regular-text" type="text" />
+            </td>
+        </tr>
+        <tr>
+            <th scope="row">
+                <label for="<?php echo "{$prefix}-from_name"?>">From name</label>
+            </th>
+            <td>
+                <input name="<?php echo "{$optionsKey}[from_name]"; ?>" id="<?php echo "{$prefix}-from_name"?>" value="{{from_name}}" class="regular-text" type="text" />
+            </td>
+        </tr>
+        <tr>
+            <th scope="row">
                 <label for="<?php echo "{$prefix}-host"?>">Host</label>
             </th>
             <td>
