@@ -19,6 +19,9 @@ class Ses
     public $errors = array();
 
     protected $adminActions = array("update_settings", "test_email");
+
+    protected $sdkFactory = null;
+    protected $awsClients = array();
    
 
     function __construct () {
@@ -51,6 +54,29 @@ class Ses
         add_action("wp_ajax_nopriv_sns_notify", array(&$this, "handleSNSNotification"));       
     }
 
+    function getSdkFactory () {
+        if (is_null($this->sdkFactory)) {
+            $this->sdkFactory = new \Aws\Sdk(array(
+                "version"=>"latest",
+                "region"=>"us-east-1",
+                "credentials"=>array(
+                    "key"=>$this->getOption("username"),
+                    "secret"=>$this->getOption("password")
+                )
+            ));
+        }
+
+        return $this->sdkFactory;
+    }
+
+    function getAwsClient ($service) {
+        if (!isset($this->awsClients[$service])) {
+            $this->awsClients[$service] = $this->getSdkFactory()->createClient($service);
+        }
+
+        return $this->awsClients[$service];
+    }
+
     function handleSNSNotification () {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             error_log("Not a POST request.");
@@ -67,7 +93,7 @@ class Ses
             error_log("Invalid SNS message: ".$e->getMessage());
             $this->ajaxExit(404);
         }
-        catch (Exception $e) {
+        catch (\Exception $e) {
             error_log("Error processing SNS notification: ".$e->getMessage);
             $this->ajaxExit(500);
         }
@@ -83,7 +109,7 @@ class Ses
             $this->$method($message);
         }
         else {
-            throw new Exception("Unsupported SNS message type '$messageType'");
+            throw new \Exception("Unsupported SNS message type '$messageType'");
         }
     }
 
@@ -97,7 +123,7 @@ class Ses
             $this->processComplaint($messageData->complaint);
         }
         else {
-            throw new Exception("Unsupported SES notification '$notificationType'");
+            throw new \Exception("Unsupported SES notification '$notificationType'");
         }
     }
 
@@ -133,7 +159,12 @@ class Ses
         }
 
         if (in_array($action, $this->adminActions) && method_exists($this, $action)) {
-            $this->$action();
+            try {
+                $this->$action();
+            }
+            catch (\Exception $e) {
+                $this->errors[] = $e->getMessage();
+            }
         }
     }
 
@@ -178,7 +209,11 @@ class Ses
             return;
         }
         else {
+            
             update_option($this->optionsKey, $newOptions);
+            if ($newOptions["suppress_bounce"]) {
+                $this->setNotificationHandler();
+            }
             $this->msg = "Settings updated.";
         }
     }
@@ -345,6 +380,27 @@ class Ses
         if (count($phpmailer->getAllRecipientAddresses()) == 0) {
             error_log("gn-ses: Warning: Message has no recipients.");
         }
+
+    }
+
+    function setNotificationHandler () {
+        $snsClient = $this->getAwsClient("Sns");
+        $topic = $snsClient->createTopic(array("Name"=>"gnses-notifications"));
+        $snsClient->subscribe(array(
+            'Endpoint'=>admin_url("admin-ajax.php?action=sns_notify"),
+            'Protocol'=>(is_ssl() ? "https" : "http"),
+            'TopicArn'=>$topic['TopicArn']
+        ));
+        $notifyParams = array(
+            'Identity'=>$this->getOption("from_address"),
+            'NotificationType'=>'Bounce',
+            'SnsTopic'=>$topic['TopicArn']
+        );
+        $sesClient = $this->getAwsClient("Ses");
+        $sesClient->setIdentityNotificationTopic($notifyParams);
+
+        $notifyParams['NotificationType'] = 'Complaint';
+        $sesClient->setIdentityNotificationTopic($notifyParams);
 
     }
     
