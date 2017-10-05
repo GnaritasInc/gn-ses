@@ -285,8 +285,8 @@ class Ses
     }
 
     function setMailCallbacks () {
-        add_action("wp_mail_from", array(&$this, "mailFrom"));
-        add_action("wp_mail_from_name", array(&$this, "mailFromName"));
+        add_filter("wp_mail_from", array(&$this, "mailFrom"));
+        add_filter("wp_mail_from_name", array(&$this, "mailFromName"));
         add_action('phpmailer_init', array(&$this, 'setMailerConfig'));
         add_action("wp_mail_failed", array(&$this, 'logMailError'));
     }
