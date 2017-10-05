@@ -144,7 +144,7 @@ class Ses
             return;
         }
 
-        $this->setMailerCallback();
+        $this->setMailCallbacks();
         add_action("wp_mail_failed", array(&$this, "setEmailError"));
 
         if ($result = wp_mail($formData['email'], $formData['subject'], $formData['message'])) {
@@ -255,9 +255,11 @@ class Ses
         return array_merge($defaults, $savedOptions);
     }
 
-    function getOption ($key) {
+    function getOption ($key, $default=null) {
         $options = $this->getOptions();
-        return $options[$key];
+        $value = $options[$key];
+
+        return strlen($value) ? $value : $default;
     }
 
     function getOptionDefaults () {
@@ -282,9 +284,19 @@ class Ses
         return $data;
     }
 
-    function setMailerCallback () {
+    function setMailCallbacks () {
+        add_action("wp_mail_from", array(&$this, "mailFrom"));
+        add_action("wp_mail_from_name", array(&$this, "mailFromName"));
         add_action('phpmailer_init', array(&$this, 'setMailerConfig'));
     }
+
+    function mailFrom ($address) {
+        return $this->getOption("from_address", $address);
+    }
+
+    function mailFromName ($name) {
+        return $this->getOption("from_name", $name);
+    }   
 
     function setMailerConfig ($phpmailer) {
         $options = $this->getOptions();
@@ -295,9 +307,7 @@ class Ses
         $phpmailer->Port = $options['port'];
         $phpmailer->Username = $options['username'];
         $phpmailer->Password = $options['password'];
-        $phpmailer->SMTPSecure = "tls";
-
-        $phpmailer->setFrom(get_option("admin_email"), "Test", false );
+        $phpmailer->SMTPSecure = "tls";       
 
         if ($options["suppress_bounce"]) {
             $this->checkRecipients($phpmailer);
