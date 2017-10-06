@@ -197,6 +197,14 @@ class Ses
         return $errors;
     }
 
+    function getSMTPPassword ($key) {
+        $message = "SendRawEmail";
+        $hexVersion = "02";
+        $hexSignature = hash_hmac("sha256", $message, $key);
+
+        return base64_encode(hex2bin($hexVersion . $hexSignature));
+    }
+
     function setEmailError ($error) {
         $this->errors[] = "Email failed: ".$error->get_error_message();
     }
@@ -210,6 +218,7 @@ class Ses
         }
         else {
             
+            $newOptions["_smtp_password"] = $this->getSMTPPassword($newOptions['password']);
             update_option($this->optionsKey, $newOptions);
             if ($newOptions["suppress_bounce"]) {
                 $this->setNotificationHandler();
@@ -297,6 +306,12 @@ class Ses
         return strlen($value) ? $value : $default;
     }
 
+    function setOption ($key, $value) {
+        $options = $this->getOptions();
+        $options[$key] = $value;
+        update_option($this->optionsKey, $options);        
+    }
+
     function getOptionDefaults () {
         if (is_null($this->optionDefaults)) {
             $this->optionDefaults = array(
@@ -347,7 +362,7 @@ class Ses
         $phpmailer->SMTPAuth = true; 
         $phpmailer->Port = $options['port'];
         $phpmailer->Username = $options['username'];
-        $phpmailer->Password = $options['password'];
+        $phpmailer->Password = $options['_smtp_password'];
         $phpmailer->SMTPSecure = "tls";       
 
         if ($options["suppress_bounce"]) {
