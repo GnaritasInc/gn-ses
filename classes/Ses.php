@@ -219,9 +219,13 @@ class Ses
         else {
             
             $newOptions["_smtp_password"] = $this->getSMTPPassword($newOptions['password']);
-            update_option($this->optionsKey, $newOptions);
+            $this->setOptions($newOptions);           
+            
             if ($newOptions["suppress_bounce"]) {
                 $this->setNotificationHandler();
+            }
+            else {
+                $this->unsetNotificationHandler();
             }
             $this->msg = "Settings updated.";
         }
@@ -312,6 +316,11 @@ class Ses
         update_option($this->optionsKey, $options);        
     }
 
+    function setOptions ($newOptions) {
+        $options = $this->getOptions();
+        update_option($this->optionsKey, array_merge($options, $newOptions));
+    }
+
     function getOptionDefaults () {
         if (is_null($this->optionDefaults)) {
             $this->optionDefaults = array(
@@ -322,7 +331,8 @@ class Ses
                 "suppress_bounce"=>1,
                 "remove_tables"=>0,
                 "from_address"=>get_option('admin_email'),
-                "from_name"=>""
+                "from_name"=>"",
+                "ses_identity"=>"email"
             );
         }
 
@@ -398,25 +408,74 @@ class Ses
 
     }
 
-    function setNotificationHandler () {
+    function getSESIdentity () {
+        $email = $this->getOption("from_address");
+        $identityOption = $this->getOption("ses_identity");
+
+        return ($identityOption == "email") ? $email : substr($email, strpos($email, '@')+1);
+    }
+
+    function setNotificationHandler () {        
+        $topicARN = $this->createSNSTopic();
+        $this->setSESNotification("Bounce", $topicARN);
+        $this->setSESNotification("Complaint", $topicARN);
+    }
+
+    function setSESNotification ($type, $topicARN) {
+        $sesClient = $this->getAwsClient("Ses");
+        $params = array(
+            'Identity'=>$this->getSESIdentity(),
+            'NotificationType'=>$type
+        );
+
+        if ($topicARN) {
+            $params['SnsTopic'] = $topicARN;
+        }
+
+        $sesClient->setIdentityNotificationTopic($params);
+
+    }
+
+    function setSESFeedbackForwarding ($state = true) {
+        $sesClient = $this->getAwsClient("Ses");
+        $sesClient->setIdentityFeedbackForwardingEnabled(array(
+            'ForwardingEnabled'=>$state,
+            'Identity'=>$this->getSESIdentity()
+        ));
+    }
+
+    function createSNSTopic () {
         $snsClient = $this->getAwsClient("Sns");
         $topic = $snsClient->createTopic(array("Name"=>"gnses-notifications"));
+        $topicARN = $topic['TopicArn'];
+        
+        $this->setOption("_topic_arn", $topicARN);
+
         $snsClient->subscribe(array(
             'Endpoint'=>admin_url("admin-ajax.php?action=sns_notify"),
             'Protocol'=>(is_ssl() ? "https" : "http"),
-            'TopicArn'=>$topic['TopicArn']
+            'TopicArn'=>$topicARN
         ));
-        $notifyParams = array(
-            'Identity'=>$this->getOption("from_address"),
-            'NotificationType'=>'Bounce',
-            'SnsTopic'=>$topic['TopicArn']
-        );
-        $sesClient = $this->getAwsClient("Ses");
-        $sesClient->setIdentityNotificationTopic($notifyParams);
 
-        $notifyParams['NotificationType'] = 'Complaint';
-        $sesClient->setIdentityNotificationTopic($notifyParams);
+        return $topicARN;
+    }
 
+    function deleteSNSTopic () {
+        if ($topicARN = $this->getOption("_topic_arn")) {
+            $snsClient = $this->getAwsClient("Sns");
+            $snsClient->deleteTopic(array(
+                'TopicArn'=>$topicARN
+            ));
+        }
+
+        $this->setOption("_topic_arn", null);
+    }
+
+    function unsetNotificationHandler () {        
+        $this->setSESFeedbackForwarding(true);
+        $this->setSESNotification("Bounce", null);
+        $this->setSESNotification("Complaint", null);
+        $this->deleteSNSTopic();       
     }
     
 }
