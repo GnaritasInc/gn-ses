@@ -140,6 +140,9 @@ class Ses
         elseif ($notificationType == "Complaint") {
             $this->processComplaint($messageData->complaint);
         }
+        elseif ($notificationType == 'AmazonSnsSubscriptionSucceeded') {
+            error_log("SES Subscription success.");
+        }
         else {
             throw new \Exception("Unsupported SES notification '$notificationType'");
         }
