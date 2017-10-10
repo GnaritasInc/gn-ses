@@ -20,6 +20,7 @@ class Ses
 
     protected $adminActions = array("update_settings", "test_email");
 
+    protected $awsOptions = null;
     protected $sdkFactory = null;
     protected $awsClients = array();
    
@@ -54,16 +55,33 @@ class Ses
         add_action("wp_ajax_nopriv_sns_notify", array(&$this, "handleSNSNotification"));       
     }
 
-    function getSdkFactory () {
+    function setAwsOptions ($options=array()) {
+        $defaults = array(
+            "version"=>"latest",
+            "region"=>"us-east-1",
+            "credentials"=>array(
+                "key"=>$this->getOption("username"),
+                "secret"=>$this->getOption("password")
+            )
+        );
+
+        if (is_null($this->awsOptions)) {
+            $this->awsOptions = array_merge($defaults, $options);            
+        }
+    }
+
+    function getAwsOptions () {
+        if (is_null($this->awsOptions)) {
+            $this->setAwsOptions();
+        }
+
+        return $this->awsOptions;
+    }
+
+    function getSdkFactory () {       
+        
         if (is_null($this->sdkFactory)) {
-            $this->sdkFactory = new \Aws\Sdk(array(
-                "version"=>"latest",
-                "region"=>"us-east-1",
-                "credentials"=>array(
-                    "key"=>$this->getOption("username"),
-                    "secret"=>$this->getOption("password")
-                )
-            ));
+            $this->sdkFactory = new \Aws\Sdk($this->getAwsOptions());
         }
 
         return $this->sdkFactory;
@@ -94,7 +112,7 @@ class Ses
             $this->ajaxExit(404);
         }
         catch (\Exception $e) {
-            error_log("Error processing SNS notification: ".$e->getMessage);
+            error_log("Error processing SNS notification: ".$e->getMessage());
             $this->ajaxExit(500);
         }
         
@@ -218,16 +236,43 @@ class Ses
         }
         else {
             
+            $this->setAwsOptions(array(
+                "credentials"=>array(
+                    "key"=>$newOptions['username'],
+                    "secret"=>$newOptions['password']
+                )
+            ));
+
+            try {
+                $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
+                $this->verifyAwsIdentity($newIdentity);
+
+                $newOptions['_identity_verified'] = 1;
+
+                if ($newOptions["suppress_bounce"]) {
+                    $this->setNotificationHandler();
+                }
+                else {
+                    $this->unsetNotificationHandler();
+                }
+            }
+            catch (\Exception $e) {
+                $this->errors[] = $e->getMessage();
+                return;
+            }
+
             $newOptions["_smtp_password"] = $this->getSMTPPassword($newOptions['password']);
-            $this->setOptions($newOptions);           
-            
-            if ($newOptions["suppress_bounce"]) {
-                $this->setNotificationHandler();
-            }
-            else {
-                $this->unsetNotificationHandler();
-            }
+            $this->setOptions($newOptions);
+
             $this->msg = "Settings updated.";
+        }
+    }
+
+    function verifyAwsIdentity ($identity) {
+        $sesClient = $this->getAwsClient("Ses");
+        $result = $sesClient->getIdentityVerificationAttributes(array('Identities'=>array($identity)));
+        if ($result['VerificationAttributes'][$identity]['VerificationStatus'] != 'Success') {
+            throw new \Exception("AWS identity '$identity' not verified.");         
         }
     }
 
@@ -408,9 +453,9 @@ class Ses
 
     }
 
-    function getSESIdentity () {
-        $email = $this->getOption("from_address");
-        $identityOption = $this->getOption("ses_identity");
+    function getSESIdentity ($email=null, $identityOption=null) {
+        $email = is_null($email) ? $this->getOption("from_address") : $email;
+        $identityOption = is_null($identityOption) ? $this->getOption("ses_identity") : $identityOption;
 
         return ($identityOption == "email") ? $email : substr($email, strpos($email, '@')+1);
     }
