@@ -84,8 +84,10 @@ class SesData extends \gn_PluginDB
         return $this->db->get_var($this->db->prepare($sql, $address));
     }
 
-    function getNotificationCount () {
-        return $this->db->get_var("select count(*) from ".$this->tableName("notification"));
+    function getNotificationCount ($params=array()) {
+        $sql = "select count(*) from ".$this->tableName("notification");
+        $sql .= $this->getNotificationFilterSQL($params);
+        return $this->db->get_var($sql);
     }
 
     function getNotificationList ($args) {
@@ -96,13 +98,50 @@ class SesData extends \gn_PluginDB
             "order"=>"desc"
         );
 
-        $params = array_merge($defaults, array_intersect_key($args, $defaults));
+        $params = array_merge($defaults, $args);
 
         $sql = "select * from ".$this->tableName("notification");
-        $sql .= sprintf(" order by %s %s", $params['order_by'], $params['order']);
-        $sql .= $this->db->prepare(" limit %d, %d", $params['offset'], $params['limit']);      
+        $sql .= $this->getNotificationFilterSQL($params);
+        $sql .= $this->getOrderBy("notification", $params['order_by'], $params['order']);
+        if (intval($params['limit'])) {
+            $sql .= $this->db->prepare(" limit %d, %d", $params['offset'], $params['limit']);
+        }            
 
         return $this->db->get_results($sql, ARRAY_A);
 
+    }
+
+    function getOrderBy ($table, $column, $order="asc") {
+        $tableCols = $this->tableDefinition[$table]["columns"];
+        if (in_array($column, $tableCols) && in_array($order, array("asc", "desc"))) {
+            return sprintf(" order by %s %s", $column, $order);
+        }
+        else {
+            return "";
+        }
+    }
+
+    function getNotificationFilterSQL ($params) {
+        $conditions = array();
+        $filterKeys = array("date_start", "notification_type", "filter_email", "bounce_type");
+        foreach($filterKeys as $key) {
+            $val = trim($params[$key]);
+            if (!strlen($val)) {
+                continue;
+            }
+            if ($key == "date_start" && $endDate = trim($params['date_end'])) {
+                $endDate .= " 23:59:59";
+                $conditions[] = $this->db->prepare("notification_date between %s and %s", $val, $endDate);
+            }
+            elseif ($key == "filter_email") {
+                $filterValue = '%'.$this->db->esc_like($val).'%';
+                $conditions[] = $this->db->prepare("email like %s", $filterValue);
+            }
+            else {
+                $conditions[] = $this->db->prepare("$key = %s", $val);
+            }
+        }
+
+        return count($conditions) ? " where ".implode(" and ", $conditions) : "";
     }
 }

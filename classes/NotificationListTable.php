@@ -51,9 +51,11 @@ class NotificationListTable extends \WP_List_Table
         $sortable = $this->get_sortable_columns();
         $this->_column_headers = array($columns, $hidden, $sortable);
 
+         $filters = array_intersect_key($_GET, array_fill_keys(array("date_start", "date_end", "notification_type", "filter_email", "bounce_type"), ""));
+
         $per_page = 5;
         $current_page = $this->get_pagenum();
-        $total_items = $data->getNotificationCount();
+        $total_items = $data->getNotificationCount($filters);
 
         $orderCol = isset($sortable[$_GET['orderby']]) ? $sortable[$_GET['orderby']][0] : "notification_date";
         $order = in_array($_GET['order'], array('asc', 'desc')) ? $_GET['order'] : "desc";
@@ -63,9 +65,9 @@ class NotificationListTable extends \WP_List_Table
             "offset"=>intval($_GET['paged']),
             "order_by"=>$orderCol,
             "order"=>$order
-        );
+        );       
 
-        $this->items = $data->getNotificationList($args);
+        $this->items = $data->getNotificationList(array_merge($args, $filters));
 
         $this->set_pagination_args(array(
             "total_items"=>$total_items,

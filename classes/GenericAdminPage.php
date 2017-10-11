@@ -13,7 +13,7 @@ class GenericAdminPage extends \Voce_Settings_Page
     }
 
     protected function renderTemplate () {
-        $context = apply_filters("gn_admin_page_data_{$this->page_key}", array());
+        $context = apply_filters("gn_admin_page_data_{$this->page_key}", $_REQUEST);
 
         $plugin = $this->plugin;
         $optionsKey = $plugin->optionsKey;

@@ -13,6 +13,7 @@ class Ses
     public $adminActionKey = "gnses_action";
     public $nonceKey = "gnses_nonce";
     public $optionsKey = "gnses_options";
+    public $exportActionText = "Export as CSV";
     
     protected $optionDefaults = null;
 
@@ -49,8 +50,13 @@ class Ses
             "notifications"=>array("title"=>"SNS Notifications", "parent"=>"main")
         ));
 
-        if (is_admin() && isset($_POST[$this->adminActionKey])) {
-            $this->handleAdminPost();
+        if (is_admin()) {
+            if (isset($_POST[$this->adminActionKey])) {
+                $this->handleAdminPost();
+            }
+            elseif ($_GET[$this->adminActionKey] == $this->exportActionText) {
+                $this->doCSVExport();
+            }
         }
 
         add_action("wp_ajax_nopriv_sns_notify", array(&$this, "handleSNSNotification"));       
@@ -198,9 +204,7 @@ class Ses
 
     function handleAdminPost () {
         $action = trim($_POST[$this->adminActionKey]);
-        if (!wp_verify_nonce($_POST[$this->nonceKey], $action) || !current_user_can($this->adminCapability)) {
-            wp_die("Unauthorized");
-        }
+        $this->validateNonce($_POST[$this->nonceKey], $action);
 
         if (in_array($action, $this->adminActions) && method_exists($this, $action)) {
             try {
@@ -210,6 +214,17 @@ class Ses
                 $this->errors[] = $e->getMessage();
             }
         }
+    }
+
+    function validateNonce ($nonce, $action) {
+        if (!wp_verify_nonce($nonce, $action) || !current_user_can($this->adminCapability)) {
+            wp_die("Unauthorized");
+        }
+    }
+
+    function doCSVExport () {
+        $this->validateNonce($_GET[$this->nonceKey], $this->exportActionText);
+        wp_die("CSV export TBD");
     }
 
     function test_email () {
@@ -383,8 +398,10 @@ class Ses
             }
         }
 
-        add_filter("gn_admin_page_data_gnses-main", array(&$this, 'mainPageData'));
+        add_filter("gn_admin_page_data_gnses-main", array(&$this, 'mainPageData'));        
     }
+
+
 
     function getOptions () {
         $defaults = $this->getOptionDefaults();
