@@ -23,6 +23,7 @@ class Ses
     protected $awsOptions = null;
     protected $sdkFactory = null;
     protected $awsClients = array();
+    protected $emailOptions = null;
    
 
     function __construct () {
@@ -53,6 +54,28 @@ class Ses
         }
 
         add_action("wp_ajax_nopriv_sns_notify", array(&$this, "handleSNSNotification"));       
+    }
+
+    function setEmailOptions ($options=array()) {
+       $fields = array('host', 'port', 'username', '_smtp_password', 'from_address', 'from_name', 'suppress_bounce');
+       $defaults = array_intersect_key($this->getOptions(), array_fill_keys($fields, ''));
+
+       $this->emailOptions = array_merge($defaults, array_intersect_key($options, $defaults));      
+    }
+
+    function getEmailOptions () {
+        if (is_null($this->emailOptions)) {
+            $this->setEmailOptions();
+        }
+
+        return $this->emailOptions;
+    }
+
+    function getEmailOption ($key, $default=null) {
+        $options = $this->getEmailOptions();
+        $value = $options[$key];
+
+        return strlen($value) ? $value : $default;
     }
 
     function setAwsOptions ($options=array()) {
@@ -230,6 +253,10 @@ class Ses
         $this->errors[] = "Email failed: ".$error->get_error_message();
     }
 
+    function wpErrorException ($error) {
+        throw new \Exception($error->get_error_message());      
+    }
+
     function update_settings () {
         $input = $_POST[$this->optionsKey];
         $newOptions = array_merge(array("suppress_bounce"=>0, "remove_tables"=>0), array_intersect_key($input, $this->getOptionDefaults()));
@@ -247,10 +274,14 @@ class Ses
             ));
 
             try {
+                
                 $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
                 $this->verifyAwsIdentity($newIdentity);
-
                 $newOptions['_identity_verified'] = 1;
+
+                $newOptions["_smtp_password"] = $this->getSMTPPassword($newOptions['password']);                
+                $this->verifySMTP($newOptions);
+                $newOptions['_smtp_ok'] = 1;
 
                 if ($newOptions["suppress_bounce"]) {
                     $this->setNotificationHandler();
@@ -263,12 +294,23 @@ class Ses
                 $this->errors[] = $e->getMessage();
                 return;
             }
-
-            $newOptions["_smtp_password"] = $this->getSMTPPassword($newOptions['password']);
+            
             $this->setOptions($newOptions);
 
             $this->msg = "Settings updated.";
         }
+    }
+
+    function verifySMTP ($options) {        
+        $this->setEmailOptions($options);
+        $this->setMailCallbacks();
+        add_action("wp_mail_failed", array(&$this, "wpErrorException"));
+        try {
+            wp_mail("success@simulator.amazonses.com", "Test", "Test");
+        }
+        catch (\Exception $e) {
+            throw new \Exception("Failed sending test email: ".$e->getMessage());            
+        } 
     }
 
     function verifyAwsIdentity ($identity) {
@@ -401,11 +443,11 @@ class Ses
 
 
     function mailFrom ($address) {
-        return $this->getOption("from_address", $address);
+        return $this->getEmailOption("from_address", $address);
     }
 
     function mailFromName ($name) {
-        return $this->getOption("from_name", $name);
+       return $this->getEmailOption("from_name", $name);
     }
 
     function logMailError ($error) {
@@ -413,7 +455,7 @@ class Ses
     }   
 
     function setMailerConfig ($phpmailer) {
-        $options = $this->getOptions();
+        $options = $this->getEmailOptions();
 
         $phpmailer->isSMTP();     
         $phpmailer->Host = $options['host'];
