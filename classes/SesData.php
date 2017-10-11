@@ -83,4 +83,26 @@ class SesData extends \gn_PluginDB
         $sql = "select count(*) from ".$this->tableName("notification")." where email=%s and resend=0";
         return $this->db->get_var($this->db->prepare($sql, $address));
     }
+
+    function getNotificationCount () {
+        return $this->db->get_var("select count(*) from ".$this->tableName("notification"));
+    }
+
+    function getNotificationList ($args) {
+        $defaults = array(
+            "offset"=>0,
+            "limit"=>20,
+            "order_by"=>"notification_date",
+            "order"=>"desc"
+        );
+
+        $params = array_merge($defaults, array_intersect_key($args, $defaults));
+
+        $sql = "select * from ".$this->tableName("notification");
+        $sql .= sprintf(" order by %s %s", $params['order_by'], $params['order']);
+        $sql .= $this->db->prepare(" limit %d, %d", $params['offset'], $params['limit']);      
+
+        return $this->db->get_results($sql, ARRAY_A);
+
+    }
 }

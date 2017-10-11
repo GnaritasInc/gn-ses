@@ -12,6 +12,12 @@ require_once("classes/SesData.php");
 require_once("classes/Ses.php");
 require_once("classes/GenericAdminPage.php");
 
+if( ! class_exists( 'WP_List_Table' ) ) {
+    require_once( ABSPATH . 'wp-admin/includes/class-wp-list-table.php' );
+}
+
+require_once("classes/NotificationListTable.php");
+
 
 
 $gnses = new gnaritas\ses\Ses();
