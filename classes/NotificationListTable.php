@@ -73,4 +73,10 @@ class NotificationListTable extends \WP_List_Table
             "total_pages"=>ceil($total_items/$per_page)
         ));
     }
+
+    
+    // overriding to get rid of text box
+    function display_tablenav ($which) {
+        parent::display_tablenav("bottom");
+    }
 }
