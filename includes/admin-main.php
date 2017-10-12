@@ -37,14 +37,14 @@
         </tr>
         <tr>
             <th scope="row">
-                <label for="<?php echo "{$prefix}-username"?>">Username</label></th>
+                <label for="<?php echo "{$prefix}-username"?>">Access Key ID</label></th>
                 <td>
                     <input name="<?php echo "{$optionsKey}[username]"; ?>" id="<?php echo "{$prefix}-username"?>" value="{{username}}" class="regular-text" type="text"/>
             </td>
         </tr>
         <tr>
             <th scope="row">
-                <label for="<?php echo "{$prefix}-password"?>">Password</label>
+                <label for="<?php echo "{$prefix}-password"?>">Access Key Secret</label>
             </th>
             <td>
                 <input name="<?php echo "{$optionsKey}[password]"; ?>" id="<?php echo "{$prefix}-password"?>" value="{{password}}" class="regular-text" type="text"/>
