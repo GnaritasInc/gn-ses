@@ -319,31 +319,55 @@ class Ses
 
     function update_settings () {
         $input = $_POST[$this->optionsKey];
-        $newOptions = array_merge(array("suppress_bounce"=>0, "remove_tables"=>0), array_intersect_key($input, $this->getOptionDefaults()));
+        $optionDefaults = $this->getOptionDefaults();
+        $newOptions = array_merge(array("suppress_bounce"=>0, "remove_tables"=>0), array_intersect_key($input, $optionDefaults));
+        $oldOptions = array_intersect_key($this->getOptions(), $optionDefaults);
+        $changes = array_keys(array_diff_assoc($newOptions, $oldOptions));
+
+        if (!count($changes)) {
+            $this->msg = "No changes made.";
+            return;
+        }
+
         if ($errors = $this->validateOptions($newOptions)) {
             $this->errors = $errors;
             return;
         }
-        else {
-            
-            $this->setAwsOptions(array(
-                "credentials"=>array(
-                    "key"=>$newOptions['username'],
-                    "secret"=>$newOptions['password']
-                ),
-                "region"=>$newOptions['ses_region']
-            ));
 
-            try {
-                
+        try {
+            
+            $awsOptionsChanged = array_intersect(array('username', 'password', 'ses_region'), $changes) ? true : false;
+            $identityChanged = array_intersect(array('from_address', 'ses_identity'), $changes) ? true : false;
+            $smtpChanged = $awsOptionsChanged || $identityChanged || array_intersect(array('host', 'port'), $changes);
+            $bounceChanged = in_array('suppress_bounce', $changes);
+
+            if ($awsOptionsChanged) {
+                error_log("Provisionally setting new AWS options.");
+                $this->setAwsOptions(array(
+                    "credentials"=>array(
+                        "key"=>$newOptions['username'],
+                        "secret"=>$newOptions['password']
+                    ),
+                    "region"=>$newOptions['ses_region']
+                ));
+            }            
+
+            if ($identityChanged || $awsOptionsChanged) {
+                error_log("Verifying new SES identity.");
                 $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
                 $this->verifyAwsIdentity($newIdentity);
                 $newOptions['_identity_verified'] = 1;
+            }
 
+            if ($smtpChanged) {
+                error_log("Verifying new SMTP settings");
                 $newOptions["_smtp_password"] = $this->getSMTPPassword($newOptions['password']);                
                 $this->verifySMTP($newOptions);
                 $newOptions['_smtp_ok'] = 1;
+            }
 
+            if ($bounceChanged) {
+                error_log("Updating bounce handling");
                 if ($newOptions["suppress_bounce"]) {
                     $this->setNotificationHandler();
                 }
@@ -351,15 +375,16 @@ class Ses
                     $this->unsetNotificationHandler();
                 }
             }
-            catch (\Exception $e) {
-                $this->errors[] = $e->getMessage();
-                return;
-            }
-            
-            $this->setOptions($newOptions);
-
-            $this->msg = "Settings updated.";
         }
+        catch (\Exception $e) {
+            $this->errors[] = $e->getMessage();
+            return;
+        }
+        
+        $this->setOptions($newOptions);
+
+        $this->msg = "Settings updated.";
+        
     }
 
     function verifySMTP ($options) {        
