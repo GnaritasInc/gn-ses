@@ -41,7 +41,7 @@ $listTable->prepare_items();
         </tr>
     </tbody>
 </table>
-<p><input type="submit" class="button button-secondary" value="Apply"/></p>
+<p><input type="submit" class="button button-secondary" value="Apply Filters"/></p>
 <p><input type="submit" class="button button-primary" name="<?php echo $plugin->adminActionKey; ?>" value="<?php echo $plugin->exportActionText; ?>"/></p>
 <?php $listTable->display(); ?>
 </form>
