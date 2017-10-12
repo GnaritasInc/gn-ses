@@ -598,8 +598,6 @@ class Ses
         $snsClient = $this->getAwsClient("Sns");
         $topic = $snsClient->createTopic(array("Name"=>"gnses-notifications"));
         $topicARN = $topic['TopicArn'];
-        
-        $this->setOption("_topic_arn", $topicARN);
 
         $snsClient->subscribe(array(
             'Endpoint'=>admin_url("admin-ajax.php?action=sns_notify"),
@@ -607,6 +605,8 @@ class Ses
             'TopicArn'=>$topicARN
         ));
 
+        $this->setOption("_topic_arn", $topicARN);
+        
         return $topicARN;
     }
 
