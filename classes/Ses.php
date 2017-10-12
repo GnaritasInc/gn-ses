@@ -224,7 +224,12 @@ class Ses
 
     function doCSVExport () {
         $this->validateNonce($_GET[$this->nonceKey], $this->exportActionText);
-        wp_die("CSV export TBD");
+        $filters = array_intersect_key($_GET, array_fill_keys(NotificationListTable::$filterKeys, ""));
+        $filters['limit'] = 0;
+        $records = $this->data->getNotificationList($filters);
+        $csv = new \gn_CSVWriter();
+
+        $csv->doCSVResponse("gnses-export-".time(), $records);
     }
 
     function test_email () {
