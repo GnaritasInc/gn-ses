@@ -123,7 +123,7 @@ class Ses
     function setAwsOptions ($options=array()) {
         $defaults = array(
             "version"=>"latest",
-            "region"=>"us-east-1",
+            "region"=>$this->getOption("ses_region"),
             "credentials"=>array(
                 "key"=>$this->getOption("username"),
                 "secret"=>$this->getOption("password")
@@ -326,7 +326,8 @@ class Ses
                 "credentials"=>array(
                     "key"=>$newOptions['username'],
                     "secret"=>$newOptions['password']
-                )
+                ),
+                "region"=>$newOptions['ses_region']
             ));
 
             try {
@@ -480,7 +481,8 @@ class Ses
                 "remove_tables"=>0,
                 "from_address"=>get_option('admin_email'),
                 "from_name"=>"",
-                "ses_identity"=>"email"
+                "ses_identity"=>"email",
+                "ses_region"=>""
             );
         }
 

@@ -50,6 +50,17 @@
                 <input name="<?php echo "{$optionsKey}[password]"; ?>" id="<?php echo "{$prefix}-password"?>" value="{{password}}" class="regular-text" type="text"/>
             </td>
         </tr>
+        <tr>
+            <th scope="row"><label for="<?php echo "{$prefix}-ses_region"?>">SES Region</label></th>
+            <td><input name="<?php echo "{$optionsKey}[ses_region]"; ?>" id="<?php echo "{$prefix}-ses_region"?>" value="{{ses_region}}" class="regular-text" type="text" /></td>
+        </tr>
+        <tr>
+            <th scope="row">SES Identity Type</th>
+            <td>
+                <label><input type="radio" name="<?php echo "{$optionsKey}[ses_identity]"; ?>" value="email" <?php checked($context['ses_identity'], "email"); ?>/> Email</label><br/>
+                <label><input type="radio" name="<?php echo "{$optionsKey}[ses_identity]"; ?>" value="domain" <?php checked($context['ses_identity'], "domain"); ?>/> Domain</label>
+            </td>
+        </tr>
     </tbody>
 </table>
 <h2>Bounce Handling</h2>
@@ -75,7 +86,7 @@
     </tbody>
 </table>                
 <p class="submit">
-    <input type="submit" value="Save Changes" class="button-primary" />
+    <input type="submit" value="Save Changes" class="button-primary" /> <a class="button-secondary" href="<?php echo $_SERVER['REQUEST_URI']?>">Cancel</a>
 </p>
 <?php include("_admin_form_close.php"); ?>
 <?php include("_admin_page_close.php"); ?>
