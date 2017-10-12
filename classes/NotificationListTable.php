@@ -5,6 +5,7 @@ namespace gnaritas\ses;
 class NotificationListTable extends \WP_List_Table
 {
     public $plugin;
+    public static $filterKeys = array("date_start", "date_end", "notification_type", "filter_email", "bounce_type");
 
     
     function __construct (&$plugin) {
@@ -51,9 +52,9 @@ class NotificationListTable extends \WP_List_Table
         $sortable = $this->get_sortable_columns();
         $this->_column_headers = array($columns, $hidden, $sortable);
 
-         $filters = array_intersect_key($_GET, array_fill_keys(array("date_start", "date_end", "notification_type", "filter_email", "bounce_type"), ""));
+        $filters = array_intersect_key($_GET, array_fill_keys(self::$filterKeys, ""));
 
-        $per_page = 5;
+        $per_page = 20;
         $current_page = $this->get_pagenum();
         $total_items = $data->getNotificationCount($filters);
 
