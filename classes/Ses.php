@@ -69,8 +69,7 @@ class Ses
     }
 
     function doAdminNotices () {
-        global $pagenow;
-        if (!($pagenow=="index.php" || $this->onSettingsPage())) {
+        if (!($this->onDashboard() || $this->onSettingsPage())) {
             return;
         }
 
@@ -85,16 +84,21 @@ class Ses
             $this->adminNotice("Handling bounces and complaints through Amazon SNS and suppressing email to bounced/complained addresses.");
         }
         else {
-            $this->adminNotice("Bounce and complaint notifications not handled through Amazon SNS.", "warning");
+            $this->adminNotice("Not handling bounces and complaints.", "warning");
         }
     }
 
-    function onSettingsPage () {
-        return is_admin() && $_GET['page'] == "gnses-main";
+    function onSettingsPage ($slug="gnses-") {
+        return is_admin() && strpos($_GET['page'], $slug) === 0;
+    }
+
+    function onDashboard () {
+        global $pagenow;
+        return is_admin() && $pagenow=="index.php";
     }
 
     function adminNotice ($text, $type="info") {
-        $prefix = $this->onSettingsPage() ? "" : "<b>Amazon SES</b>: ";
+        $prefix = $this->onDashboard() ? "<b>Amazon SES</b>: " : "";
         echo "<div class='notice notice-{$type} is-dismissible'><p>{$prefix}$text</p></div>";
     }
 
