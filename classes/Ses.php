@@ -286,7 +286,7 @@ class Ses
     function validateEmailInput ($data) {
         $errors = array();
         foreach ($data as $key=>$value) {            
-            if ($key=='email' && !filter_var($value, FILTER_VALIDATE_EMAIL)) { 
+            if ($key=='email' && !$this->isEmail($value)) { 
                 $errors[] = "Invalid email address.";
             }
             elseif (!$this->hasInput($value)) {
@@ -606,7 +606,7 @@ class Ses
         ));
 
         $this->setOption("_topic_arn", $topicARN);
-        
+
         return $topicARN;
     }
 
