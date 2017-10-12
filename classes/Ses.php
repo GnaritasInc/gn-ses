@@ -59,7 +59,43 @@ class Ses
             }
         }
 
-        add_action("wp_ajax_nopriv_sns_notify", array(&$this, "handleSNSNotification"));       
+        add_action("wp_ajax_nopriv_sns_notify", array(&$this, "handleSNSNotification"));
+
+        if ($this->getOption("_smtp_ok")) {
+            $this->setMailCallbacks();
+        }
+
+        add_action("admin_notices", array(&$this, "doAdminNotices"));       
+    }
+
+    function doAdminNotices () {
+        global $pagenow;
+        if (!($pagenow=="index.php" || $this->onSettingsPage())) {
+            return;
+        }
+
+        if ($this->getOption("_smtp_ok")) {
+            $this->adminNotice("Sending email through Amazon SES.");
+        }
+        else {
+            $this->adminNotice("Unable to send email through Amazon SES. Please update your settings.", "error");
+        }
+
+        if ($this->getOption("_topic_arn")) {
+            $this->adminNotice("Handling bounces and complaints through Amazon SNS and suppressing email to bounced/complained addresses.");
+        }
+        else {
+            $this->adminNotice("Bounce and complaint notifications not handled through Amazon SNS.", "warning");
+        }
+    }
+
+    function onSettingsPage () {
+        return is_admin() && $_GET['page'] == "gnses-main";
+    }
+
+    function adminNotice ($text, $type="info") {
+        $prefix = $this->onSettingsPage() ? "" : "<b>Amazon SES</b>: ";
+        echo "<div class='notice notice-{$type} is-dismissible'><p>{$prefix}$text</p></div>";
     }
 
     function setEmailOptions ($options=array()) {
