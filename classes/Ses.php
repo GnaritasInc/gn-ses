@@ -386,7 +386,8 @@ class Ses
             "host"=>array("callback"=>"isHostname", "msg"=>"Host must be a well-formed internet host name."),
             "port"=>array("callback"=>"isPosint", "msg"=>"Port must be a positive integer."),
             "username"=>array("msg"=>"Username is required."),
-            "password"=>array("msg"=>"Password is required.")
+            "password"=>array("msg"=>"Password is required."),
+            "ses_region"=>array("msg"=>"SES region is required.")
         );
 
         foreach ($fields as $key=>$fieldInfo) {
