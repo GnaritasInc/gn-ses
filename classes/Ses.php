@@ -18,6 +18,7 @@ class Ses
     protected $optionDefaults = null;
 
     public $errors = array();
+    public $warnings = array();
 
     protected $adminActions = array("update_settings", "test_email");
 
@@ -133,10 +134,9 @@ class Ses
                 "secret"=>$this->getOption("password")
             )
         );
-
-        if (is_null($this->awsOptions)) {
-            $this->awsOptions = array_merge($defaults, $options);            
-        }
+        
+        $this->awsOptions = array_merge($defaults, $options);            
+        
     }
 
     function getAwsOptions () {
@@ -338,8 +338,13 @@ class Ses
             
             $awsOptionsChanged = array_intersect(array('username', 'password', 'ses_region'), $changes) ? true : false;
             $identityChanged = array_intersect(array('from_address', 'ses_identity'), $changes) ? true : false;
+            
+            $identityOrOptionsChanged = $awsOptionsChanged || $identityChanged;
+
             $smtpChanged = $awsOptionsChanged || $identityChanged || array_intersect(array('host', 'port'), $changes);
             $bounceChanged = in_array('suppress_bounce', $changes);
+
+            $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
 
             if ($awsOptionsChanged) {
                 error_log("Provisionally setting new AWS options.");
@@ -352,9 +357,8 @@ class Ses
                 ));
             }            
 
-            if ($identityChanged || $awsOptionsChanged) {
-                error_log("Verifying new SES identity.");
-                $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
+            if ($identityOrOptionsChanged) {
+                error_log("Verifying new SES identity.");                
                 $this->verifyAwsIdentity($newIdentity);
                 $newOptions['_identity_verified'] = 1;
             }
@@ -366,25 +370,32 @@ class Ses
                 $newOptions['_smtp_ok'] = 1;
             }
 
-            if ($bounceChanged) {
-                error_log("Updating bounce handling");
-                if ($newOptions["suppress_bounce"]) {
-                    $this->setNotificationHandler();
-                }
-                else {
-                    $this->unsetNotificationHandler();
-                }
+            if ($newOptions["suppress_bounce"] && ($bounceChanged || $identityChanged)) {
+                error_log("Setting bounce handler");
+                $topicARN = $this->setNotificationHandler($newIdentity);
+                $newOptions["_topic_arn"] = $topicARN;
             }
+            elseif (!$newOptions["suppress_bounce"] &&  $bounceChanged && !$identityChanged) {
+                error_log("Unsetting bounce handler");
+                $topicARN = $this->getOption("_topic_arn");
+                $oldIdentity = $this->getSESIdentity();
+                $this->unsetNotificationHandler($oldIdentity, $topicARN);
+                $newOptions['_topic_arn'] = null;
+            }
+            
         }
         catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
             return;
         }
+
+        if ($oldOptions["suppress_bounce"] && $identityOrOptionsChanged) {
+            $this->warnings[] = "Note: You may have to manually unset bounce/complaint handling for your old identity.";
+        }
         
         $this->setOptions($newOptions);
 
-        $this->msg = "Settings updated.";
-        
+        $this->msg = "Settings updated.";        
     }
 
     function verifySMTP ($options) {        
@@ -452,6 +463,10 @@ class Ses
 
         if (!$this->errors && $this->msg) {
             printf('<div class="notice notice-success is-dismissible"><p>%s</p></div>', htmlspecialchars($this->msg));
+        }
+
+        foreach ($this->warnings as $warning) {
+            printf('<div class="notice notice-warning is-dismissible"><p>%s</p></div>', htmlspecialchars($warning));
         }
     }
 
@@ -595,16 +610,18 @@ class Ses
         return ($identityOption == "email") ? $email : substr($email, strpos($email, '@')+1);
     }
 
-    function setNotificationHandler () {        
+    function setNotificationHandler ($identity) {        
         $topicARN = $this->createSNSTopic();
-        $this->setSESNotification("Bounce", $topicARN);
-        $this->setSESNotification("Complaint", $topicARN);
+        $this->setSESNotification("Bounce", $identity, $topicARN);
+        $this->setSESNotification("Complaint", $identity, $topicARN);
+
+        return $topicARN;
     }
 
-    function setSESNotification ($type, $topicARN) {
+    function setSESNotification ($type, $identity, $topicARN=null) {
         $sesClient = $this->getAwsClient("Ses");
         $params = array(
-            'Identity'=>$this->getSESIdentity(),
+            'Identity'=>$identity,
             'NotificationType'=>$type
         );
 
@@ -616,11 +633,11 @@ class Ses
 
     }
 
-    function setSESFeedbackForwarding ($state = true) {
+    function setSESFeedbackForwarding ($identity, $state = true) {
         $sesClient = $this->getAwsClient("Ses");
         $sesClient->setIdentityFeedbackForwardingEnabled(array(
             'ForwardingEnabled'=>$state,
-            'Identity'=>$this->getSESIdentity()
+            'Identity'=>$identity
         ));
     }
 
@@ -633,29 +650,23 @@ class Ses
             'Endpoint'=>admin_url("admin-ajax.php?action=sns_notify"),
             'Protocol'=>(is_ssl() ? "https" : "http"),
             'TopicArn'=>$topicARN
-        ));
-
-        $this->setOption("_topic_arn", $topicARN);
+        ));        
 
         return $topicARN;
     }
 
-    function deleteSNSTopic () {
-        if ($topicARN = $this->getOption("_topic_arn")) {
-            $snsClient = $this->getAwsClient("Sns");
-            $snsClient->deleteTopic(array(
-                'TopicArn'=>$topicARN
-            ));
-        }
-
-        $this->setOption("_topic_arn", null);
+    function deleteSNSTopic ($topicARN) {        
+        $snsClient = $this->getAwsClient("Sns");
+        $snsClient->deleteTopic(array(
+            'TopicArn'=>$topicARN
+        )); 
     }
 
-    function unsetNotificationHandler () {        
-        $this->setSESFeedbackForwarding(true);
-        $this->setSESNotification("Bounce", null);
-        $this->setSESNotification("Complaint", null);
-        $this->deleteSNSTopic();       
+    function unsetNotificationHandler ($identity, $topicARN) {        
+        $this->setSESFeedbackForwarding($identity, true);
+        $this->setSESNotification("Bounce", $identity, null);
+        $this->setSESNotification("Complaint", $identity, null);
+        $this->deleteSNSTopic($topicARN);
     }
     
 }
