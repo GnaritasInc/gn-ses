@@ -26,6 +26,8 @@ class Ses
     protected $sdkFactory = null;
     protected $awsClients = array();
     protected $emailOptions = null;
+    protected $removedAllRecipients = false;
+    protected $phpmailer = null;
    
 
     function __construct () {
@@ -62,8 +64,9 @@ class Ses
 
         add_action("wp_ajax_nopriv_sns_notify", array(&$this, "handleSNSNotification"));
 
-        if ($this->getOption("_smtp_ok")) {
+        if ($this->getOption("_smtp_ok") && !is_admin()) {
             $this->setMailCallbacks();
+            add_action("wp_mail_failed", array(&$this, 'handleEmailError'));
         }
 
         add_action("admin_notices", array(&$this, "doAdminNotices"));       
@@ -280,6 +283,7 @@ class Ses
         }
 
         $this->setMailCallbacks();
+        add_action("wp_mail_failed", array(&$this, 'handleEmailError'));
         add_action("wp_mail_failed", array(&$this, "setEmailError"));
 
         if ($result = wp_mail($formData['email'], $formData['subject'], $formData['message'])) {
@@ -542,8 +546,7 @@ class Ses
     function setMailCallbacks () {
         add_filter("wp_mail_from", array(&$this, "mailFrom"));
         add_filter("wp_mail_from_name", array(&$this, "mailFromName"));
-        add_action('phpmailer_init', array(&$this, 'setMailerConfig'));
-        add_action("wp_mail_failed", array(&$this, 'logMailError'));
+        add_action('phpmailer_init', array(&$this, 'setMailerConfig'));        
     }
 
 
@@ -557,10 +560,43 @@ class Ses
 
     function logMailError ($error) {
         error_log("gn-ses: Email failed: ".$error->get_error_message());
+    }
+
+    function handleEmailError ($error) {
+        $this->logMailError($error);
+        if ($this->isFatalMailerError($error)) {
+            error_log("gn-ses: Disabling SES email sending. Check your SES settings.");
+            $this->setOption("_smtp_ok", 0);
+        }
+    }
+
+    function isFatalMailerError ($error) {        
+        if ($this->removedAllRecipients) {
+            error_log("gn-ses: Recipients removed by bounce suppression. OK.");
+            return false;
+        }
+
+        if ($this->phpmailer && !$this->phpmailer->AllowEmpty && empty($this->phpmailer->Body)) {
+            error_log("gn-ses: Message failed due to empty body. OK.");
+            return false;
+        }
+
+        $errorData = $error->get_error_data();
+        foreach ($errorData['to'] as $address) {
+            if (!$this->isEmail($address)) {
+                error_log("Invalid recipient address '$address'. OK.");
+                return false;
+            }
+        }
+
+        error_log("gn-ses: Un-expected mail failure.");
+        return true;
     }   
 
     function setMailerConfig ($phpmailer) {
         $options = $this->getEmailOptions();
+
+        $this->phpmailer = $phpmailer;
 
         $phpmailer->isSMTP();     
         $phpmailer->Host = $options['host'];
@@ -599,6 +635,7 @@ class Ses
 
         if (count($phpmailer->getAllRecipientAddresses()) == 0) {
             error_log("gn-ses: Warning: Message has no recipients.");
+            $this->removedAllRecipients = true;
         }
 
     }
