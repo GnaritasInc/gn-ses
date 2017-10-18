@@ -374,19 +374,19 @@ class Ses
                 $newOptions['_smtp_ok'] = 1;
             }
 
-            if ($newOptions["suppress_bounce"] && ($bounceChanged || $identityChanged)) {
-                error_log("Setting bounce handler");
-                $topicARN = $this->setNotificationHandler($newIdentity);
-                $newOptions["_topic_arn"] = $topicARN;
+            if ($bounceChanged || $identityChanged) {
+                if ($newOptions["suppress_bounce"]) {
+                    error_log("Setting bounce handler");
+                    $topicARN = $this->setNotificationHandler($newIdentity);
+                    $newOptions["_topic_arn"] = $topicARN;
+                }
+                elseif (!$newOptions["suppress_bounce"]) {
+                    error_log("Unsetting bounce handler");
+                    $topicARN = $this->getOption("_topic_arn");         
+                    $this->unsetNotificationHandler($newIdentity, $topicARN);
+                    $newOptions['_topic_arn'] = null;
+                }
             }
-            elseif (!$newOptions["suppress_bounce"] &&  $bounceChanged && !$identityChanged) {
-                error_log("Unsetting bounce handler");
-                $topicARN = $this->getOption("_topic_arn");
-                $oldIdentity = $this->getSESIdentity();
-                $this->unsetNotificationHandler($oldIdentity, $topicARN);
-                $newOptions['_topic_arn'] = null;
-            }
-            
         }
         catch (\Exception $e) {
             $this->errors[] = $e->getMessage();
@@ -703,7 +703,9 @@ class Ses
         $this->setSESFeedbackForwarding($identity, true);
         $this->setSESNotification("Bounce", $identity, null);
         $this->setSESNotification("Complaint", $identity, null);
-        $this->deleteSNSTopic($topicARN);
+        if ($topicARN) {
+            $this->deleteSNSTopic($topicARN);
+        }
     }
     
 }
