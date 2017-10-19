@@ -326,12 +326,7 @@ class Ses
         $optionDefaults = $this->getOptionDefaults();
         $newOptions = array_merge(array("suppress_bounce"=>0, "remove_tables"=>0), array_intersect_key($input, $optionDefaults));
         $oldOptions = array_intersect_key($this->getOptions(), $optionDefaults);
-        $changes = array_keys(array_diff_assoc($newOptions, $oldOptions));
-
-        if (!count($changes)) {
-            $this->msg = "No changes made.";
-            return;
-        }
+        $changes = array_keys(array_diff_assoc($newOptions, $oldOptions));       
 
         if ($errors = $this->validateOptions($newOptions)) {
             $this->errors = $errors;
@@ -367,12 +362,12 @@ class Ses
                 $newOptions['_identity_verified'] = 1;
             }
 
-            if ($smtpChanged) {
-                error_log("Verifying new SMTP settings");
-                $newOptions["_smtp_password"] = $this->getSMTPPassword($newOptions['password']);                
-                $this->verifySMTP($newOptions);
-                $newOptions['_smtp_ok'] = 1;
-            }
+            
+            error_log("Verifying SMTP settings");
+            $newOptions["_smtp_password"] = $this->getSMTPPassword($newOptions['password']);                
+            $this->verifySMTP($newOptions);
+            $newOptions['_smtp_ok'] = 1;
+            
 
             if ($bounceChanged || $identityChanged) {
                 if ($newOptions["suppress_bounce"]) {
