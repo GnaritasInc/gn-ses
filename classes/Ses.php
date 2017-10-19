@@ -65,7 +65,7 @@ class Ses
 
         add_action("wp_ajax_nopriv_sns_notify", array(&$this, "handleSNSNotification"));
 
-        if ($this->getOption("_smtp_ok") && !is_admin()) {
+        if ($this->getOption("_smtp_ok") && !isset($_POST[$this->adminActionKey])) {
             $this->setMailCallbacks();
             add_action("wp_mail_failed", array(&$this, 'handleEmailError'));
         }
