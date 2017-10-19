@@ -42,6 +42,7 @@ class Ses
 
     function deactivate () {
         if ($this->getOption("remove_tables")) {
+            delete_option($this->optionsKey);
             $this->data->dropTables();
         }
     }

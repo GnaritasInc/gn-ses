@@ -80,7 +80,7 @@
         <tr>
             <th scope="row">&nbsp;</th>
             <td>
-                <label><input type="checkbox" name="<?php echo "{$optionsKey}[remove_tables]"; ?>" value="1" <?php checked($context['remove_tables'], 1); ?>/> Remove notification logs on deactivation?</label>
+                <label><input type="checkbox" name="<?php echo "{$optionsKey}[remove_tables]"; ?>" value="1" <?php checked($context['remove_tables'], 1); ?>/> Remove notification logs and options on deactivation?</label>
             </td>
         </tr>
     </tbody>
