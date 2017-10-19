@@ -123,15 +123,26 @@ class SesData extends \gn_PluginDB
 
     function getNotificationFilterSQL ($params) {
         $conditions = array();
-        $filterKeys = array("date_start", "notification_type", "filter_email", "bounce_type");
+        $filterKeys = array("date_start", "date_end", "notification_type", "filter_email", "bounce_type");        
+
         foreach($filterKeys as $key) {
             $val = trim($params[$key]);
             if (!strlen($val)) {
                 continue;
             }
-            if ($key == "date_start" && $endDate = trim($params['date_end'])) {
-                $endDate .= " 23:59:59";
-                $conditions[] = $this->db->prepare("notification_date between %s and %s", $val, $endDate);
+            if ($key == "date_start") {
+                if ($endDate = trim($params['date_end'])) {
+                    $endDate .= " 23:59:59";
+                    $conditions[] = $this->db->prepare("notification_date between %s and %s", $val, $endDate);
+                }
+                else {
+                    $conditions[] = $this->db->prepare("notification_date >= %s", $val);
+                }
+            }
+            elseif ($key == "date_end") {
+                if (!strlen(trim($params['date_start']))) {
+                    $conditions[] = $this->db->prepare("notification_date <= %s", "$val 23:59:59");
+                }
             }
             elseif ($key == "filter_email") {
                 $filterValue = '%'.$this->db->esc_like($val).'%';
