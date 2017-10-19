@@ -294,8 +294,13 @@ class Ses
     function validateEmailInput ($data) {
         $errors = array();
         foreach ($data as $key=>$value) {            
-            if ($key=='email' && !$this->isEmail($value)) { 
-                $errors[] = "Invalid email address.";
+            if ($key=='email') { 
+                if (!$this->isEmail($value)) {
+                    $errors[] = "Invalid email address.";
+                }
+                elseif ($this->getOption("suppress_bounce") && $this->data->isSuppressed($value)) {
+                    $errors[] = "'$value' is on suppression list.";
+                }
             }
             elseif (!$this->hasInput($value)) {
                 $errors[] = ucfirst($key)." is required.";
