@@ -111,7 +111,9 @@ class Ses
 
     function adminNotice ($text, $type="info") {
         $prefix = $this->onDashboard() ? "<b>Amazon SES</b>: " : "";
-        echo "<div class='notice notice-{$type} is-dismissible'><p>{$prefix}$text</p></div>";
+        $notice = preg_match('/^<p>/', $text) ? "{$prefix}$text" : "<p>{$prefix}$text</p>";
+        
+        echo "<div class='notice notice-{$type} is-dismissible'>$notice</div>";
     }
 
     function setEmailOptions ($options=array()) {
@@ -261,6 +263,9 @@ class Ses
             try {
                 $this->$action();
             }
+            catch (\Aws\Exception\AwsException $e) {
+                $this->errors[] = $this->formatAwsException($e);        
+            }
             catch (\Exception $e) {
                 $this->errors[] = $e->getMessage();
             }
@@ -344,62 +349,55 @@ class Ses
         if ($errors = $this->validateOptions($newOptions)) {
             $this->errors = $errors;
             return;
+        }        
+            
+        $awsOptionsChanged = array_intersect(array('username', 'password', 'ses_region'), $changes) ? true : false;
+        $identityChanged = array_intersect(array('from_address', 'ses_identity'), $changes) ? true : false;
+        
+        $identityOrOptionsChanged = $awsOptionsChanged || $identityChanged;
+
+        $smtpChanged = $awsOptionsChanged || $identityChanged || array_intersect(array('host', 'port'), $changes);
+        $bounceChanged = in_array('track_bounce', $changes);
+
+        $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
+
+        if ($awsOptionsChanged) {
+            error_log("Provisionally setting new AWS options.");
+            $this->setAwsOptions(array(
+                "credentials"=>array(
+                    "key"=>$newOptions['username'],
+                    "secret"=>$newOptions['password']
+                ),
+                "region"=>$newOptions['ses_region']
+            ));
+        }            
+
+        if ($identityOrOptionsChanged) {
+            error_log("Verifying new SES identity.");                
+            $this->verifyAwsIdentity($newIdentity);
+            $newOptions['_identity_verified'] = 1;
         }
 
-        try {
-            
-            $awsOptionsChanged = array_intersect(array('username', 'password', 'ses_region'), $changes) ? true : false;
-            $identityChanged = array_intersect(array('from_address', 'ses_identity'), $changes) ? true : false;
-            
-            $identityOrOptionsChanged = $awsOptionsChanged || $identityChanged;
+        
+        error_log("Verifying SMTP settings");
+        $newOptions["_smtp_password"] = $this->getSMTPPassword($newOptions['password']);                
+        $this->verifySMTP($newOptions);
+        $newOptions['_smtp_ok'] = 1;
+        
 
-            $smtpChanged = $awsOptionsChanged || $identityChanged || array_intersect(array('host', 'port'), $changes);
-            $bounceChanged = in_array('track_bounce', $changes);
-
-            $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
-
-            if ($awsOptionsChanged) {
-                error_log("Provisionally setting new AWS options.");
-                $this->setAwsOptions(array(
-                    "credentials"=>array(
-                        "key"=>$newOptions['username'],
-                        "secret"=>$newOptions['password']
-                    ),
-                    "region"=>$newOptions['ses_region']
-                ));
-            }            
-
-            if ($identityOrOptionsChanged) {
-                error_log("Verifying new SES identity.");                
-                $this->verifyAwsIdentity($newIdentity);
-                $newOptions['_identity_verified'] = 1;
+        if ($bounceChanged || $identityChanged) {
+            if ($newOptions["track_bounce"]) {
+                error_log("Setting bounce handler");
+                $topicARN = $this->setNotificationHandler($newIdentity);
+                $newOptions["_topic_arn"] = $topicARN;
             }
-
-            
-            error_log("Verifying SMTP settings");
-            $newOptions["_smtp_password"] = $this->getSMTPPassword($newOptions['password']);                
-            $this->verifySMTP($newOptions);
-            $newOptions['_smtp_ok'] = 1;
-            
-
-            if ($bounceChanged || $identityChanged) {
-                if ($newOptions["track_bounce"]) {
-                    error_log("Setting bounce handler");
-                    $topicARN = $this->setNotificationHandler($newIdentity);
-                    $newOptions["_topic_arn"] = $topicARN;
-                }
-                elseif (!$newOptions["track_bounce"]) {
-                    error_log("Unsetting bounce handler");
-                    $topicARN = $this->getOption("_topic_arn");         
-                    $this->unsetNotificationHandler($newIdentity, $topicARN);
-                    $newOptions['_topic_arn'] = null;
-                }
+            elseif (!$newOptions["track_bounce"]) {
+                error_log("Unsetting bounce handler");
+                $topicARN = $this->getOption("_topic_arn");         
+                $this->unsetNotificationHandler($newIdentity, $topicARN);
+                $newOptions['_topic_arn'] = null;
             }
-        }
-        catch (\Exception $e) {
-            $this->errors[] = $e->getMessage();
-            return;
-        }
+        }        
 
         if ($oldOptions["track_bounce"] && $identityOrOptionsChanged) {
             $this->warnings[] = "Note: You may have to manually unset bounce/complaint handling for your old identity.";
@@ -410,6 +408,10 @@ class Ses
         $this->msg = "Settings updated.";        
     }
 
+    function formatAwsException ($e) {
+        return sprintf("<p><b>Amazon AWS Error:</b></p><pre style='white-space: pre-wrap'>%s</pre>", htmlspecialchars($e->getMessage()));
+    }
+
     function verifySMTP ($options) {        
         $this->setEmailOptions($options);
         $this->setMailCallbacks();
@@ -417,6 +419,9 @@ class Ses
         try {
             wp_mail("success@simulator.amazonses.com", "Test", "Test");
         }
+        catch (\Aws\Exception\AwsException $e) {
+            throw $e;  
+        }        
         catch (\Exception $e) {
             throw new \Exception("Failed sending test email: ".$e->getMessage());            
         } 
@@ -474,15 +479,15 @@ class Ses
 
     function displayMessages () {
         foreach ($this->errors as $error) {
-            printf('<div class="notice notice-error is-dismissible"><p>%s</p></div>', htmlspecialchars($error));
+            $this->adminNotice($error, "error");            
         }
 
         if (!$this->errors && $this->msg) {
-            printf('<div class="notice notice-success is-dismissible"><p>%s</p></div>', htmlspecialchars($this->msg));
+            $this->adminNotice($this->msg, "success");
         }
 
         foreach ($this->warnings as $warning) {
-            printf('<div class="notice notice-warning is-dismissible"><p>%s</p></div>', htmlspecialchars($warning));
+            $this->adminNotice($warning, "warning");            
         }
     }
 
