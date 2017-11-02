@@ -69,6 +69,12 @@
         <tr>
             <th scope="row">&nbsp;</th>
             <td> 
+                <label><input type="checkbox" name="<?php echo "{$optionsKey}[track_bounce]"; ?>" value="1" <?php checked($context['track_bounce'], 1); ?>/> Track bounce and complaint notifications?</label>
+            </td>
+        </tr>
+        <tr>
+            <th scope="row">&nbsp;</th>
+            <td> 
                 <label><input type="checkbox" name="<?php echo "{$optionsKey}[suppress_bounce]"; ?>" value="1" <?php checked($context['suppress_bounce'], 1); ?>/> Suppress email to bounced/compained recipients?</label>
             </td>
         </tr>

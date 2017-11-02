@@ -86,10 +86,17 @@ class Ses
         }
 
         if ($this->getOption("_topic_arn")) {
-            $this->adminNotice("Handling bounces and complaints through Amazon SNS and suppressing email to bounced/complained addresses.");
+            $this->adminNotice("Handling bounces and complaints through Amazon SNS.");
         }
         else {
             $this->adminNotice("Not handling bounces and complaints.", "warning");
+        }
+
+        if ($this->getOption("suppress_bounce")) {
+            $this->adminNotice("Suppressing email to bounced/complained recipients.");
+        }
+        else {
+            $this->adminNotice("Not suppressing email to bounced/complained recipients.", "warning");
         }
     }
 
@@ -330,7 +337,7 @@ class Ses
     function update_settings () {
         $input = $_POST[$this->optionsKey];
         $optionDefaults = $this->getOptionDefaults();
-        $newOptions = array_merge(array("suppress_bounce"=>0, "remove_tables"=>0), array_intersect_key($input, $optionDefaults));
+        $newOptions = array_merge(array("suppress_bounce"=>0, "remove_tables"=>0, "track_bounce"=>0), array_intersect_key($input, $optionDefaults));
         $oldOptions = array_intersect_key($this->getOptions(), $optionDefaults);
         $changes = array_keys(array_diff_assoc($newOptions, $oldOptions));       
 
@@ -347,7 +354,7 @@ class Ses
             $identityOrOptionsChanged = $awsOptionsChanged || $identityChanged;
 
             $smtpChanged = $awsOptionsChanged || $identityChanged || array_intersect(array('host', 'port'), $changes);
-            $bounceChanged = in_array('suppress_bounce', $changes);
+            $bounceChanged = in_array('track_bounce', $changes);
 
             $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
 
@@ -376,12 +383,12 @@ class Ses
             
 
             if ($bounceChanged || $identityChanged) {
-                if ($newOptions["suppress_bounce"]) {
+                if ($newOptions["track_bounce"]) {
                     error_log("Setting bounce handler");
                     $topicARN = $this->setNotificationHandler($newIdentity);
                     $newOptions["_topic_arn"] = $topicARN;
                 }
-                elseif (!$newOptions["suppress_bounce"]) {
+                elseif (!$newOptions["track_bounce"]) {
                     error_log("Unsetting bounce handler");
                     $topicARN = $this->getOption("_topic_arn");         
                     $this->unsetNotificationHandler($newIdentity, $topicARN);
@@ -394,7 +401,7 @@ class Ses
             return;
         }
 
-        if ($oldOptions["suppress_bounce"] && $identityOrOptionsChanged) {
+        if ($oldOptions["track_bounce"] && $identityOrOptionsChanged) {
             $this->warnings[] = "Note: You may have to manually unset bounce/complaint handling for your old identity.";
         }
         
@@ -440,6 +447,10 @@ class Ses
             if (!$this->$callback($options[$key])) {
                 $errors[] = $fieldInfo['msg'];
             }
+        }
+
+        if ($options['suppress_bounce'] && !$options['track_bounce']) {
+            $errors[] = "You must enable bounce tracking to suppress email to bounced/complained recipients.";
         }
 
         return $errors;
@@ -527,6 +538,7 @@ class Ses
                 "port"=>"",
                 "username"=>"",
                 "password"=>"",
+                "track_bounce"=>1,
                 "suppress_bounce"=>1,
                 "remove_tables"=>0,
                 "from_address"=>get_option('admin_email'),
