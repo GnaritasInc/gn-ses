@@ -342,82 +342,85 @@ class Ses
     function update_settings () {
         $input = $_POST[$this->optionsKey];
         $optionDefaults = $this->getOptionDefaults();
-        $newOptions = array_merge(array("suppress_bounce"=>0, "remove_tables"=>0, "track_bounce"=>0), array_intersect_key($input, $optionDefaults));
-        $oldOptions = array_intersect_key($this->getOptions(), $optionDefaults);
-        $changes = array_keys(array_diff_assoc($newOptions, $oldOptions));       
+        $newOptions = array_merge(
+            array("suppress_bounce"=>0, "remove_tables"=>0, "track_bounce"=>0), 
+            array_intersect_key($input, $optionDefaults)
+        );                
 
         if ($errors = $this->validateOptions($newOptions)) {
             $this->errors = $errors;
             return;
-        }        
-            
-        $awsOptionsChanged = array_intersect(array('username', 'password', 'ses_region'), $changes) ? true : false;
-        $identityChanged = array_intersect(array('from_address', 'ses_identity'), $changes) ? true : false;
-        
-        $identityOrOptionsChanged = $awsOptionsChanged || $identityChanged;
-
-        $smtpChanged = $awsOptionsChanged || $identityChanged || array_intersect(array('host', 'port'), $changes);
-        $bounceChanged = in_array('track_bounce', $changes);
-
-        $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
-
-        if ($awsOptionsChanged) {
-            error_log("Provisionally setting new AWS options.");
-            $this->setAwsOptions(array(
-                "credentials"=>array(
-                    "key"=>$newOptions['username'],
-                    "secret"=>$newOptions['password']
-                ),
-                "region"=>$newOptions['ses_region']
-            ));
-        }            
-
-        if ($identityOrOptionsChanged) {
-            error_log("Verifying new SES identity.");                
-            $this->verifyAwsIdentity($newIdentity);
-            $newOptions['_identity_verified'] = 1;
         }
 
+        $oldOptions = array_intersect_key($this->getOptions(), $optionDefaults); 
+        $changes = array_keys(array_diff_assoc($newOptions, $oldOptions));        
+            
+        $awsOptionsChanged = array_intersect(array('username', 'password', 'ses_region'), $changes) ? true : false;
+        $identityChanged = array_intersect(array('from_address', 'ses_identity'), $changes) ? true : false;        
+        $bounceChanged = in_array('track_bounce', $changes);        
         
-        error_log("Verifying SMTP settings");
-        $newOptions["_smtp_password"] = $this->getSMTPPassword($newOptions['password']);                
+        $this->setNewAwsOptions($newOptions);
+        $this->doIdentityVerification($newOptions);
         $this->verifySMTP($newOptions);
-        $newOptions['_smtp_ok'] = 1;
-        
 
         if ($bounceChanged || $identityChanged) {
-            if ($newOptions["track_bounce"]) {
-                error_log("Setting bounce handler");
-                $topicARN = $this->setNotificationHandler($newIdentity);
-                $newOptions["_topic_arn"] = $topicARN;
-            }
-            elseif (!$newOptions["track_bounce"]) {
-                error_log("Unsetting bounce handler");
-                $topicARN = $this->getOption("_topic_arn");         
-                $this->unsetNotificationHandler($newIdentity, $topicARN);
-                $newOptions['_topic_arn'] = null;
-            }
+            $this->updateBounceTracking($newOptions);
         }        
 
-        if ($oldOptions["track_bounce"] && $identityOrOptionsChanged) {
+        if ($oldOptions["track_bounce"] && ($awsOptionsChanged || $identityChanged)) {
             $this->warnings[] = "Note: You may have to manually unset bounce/complaint handling for your old identity.";
         }
         
         $this->setOptions($newOptions);
-
         $this->msg = "Settings updated.";        
+    }
+
+    function setNewAwsOptions ($newOptions) {
+        error_log("Provisionally setting new AWS options.");
+        $this->setAwsOptions(array(
+            "credentials"=>array(
+                "key"=>$newOptions['username'],
+                "secret"=>$newOptions['password']
+            ),
+            "region"=>$newOptions['ses_region']
+        ));
+    }
+    
+    function doIdentityVerification (&$newOptions) {
+        $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
+        error_log("Verifying SES identity.");                
+        $this->verifyAwsIdentity($newIdentity);
+        $newOptions['_identity_verified'] = 1;        
+    }
+
+    function updateBounceTracking (&$newOptions) {
+        $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
+        if ($newOptions["track_bounce"]) {
+            error_log("Setting bounce handler");
+            $topicARN = $this->setNotificationHandler($newIdentity);
+            $newOptions["_topic_arn"] = $topicARN;
+        }
+        else {
+            error_log("Unsetting bounce handler");
+            $topicARN = $this->getOption("_topic_arn");         
+            $this->unsetNotificationHandler($newIdentity, $topicARN);
+            $newOptions['_topic_arn'] = null;
+        }
     }
 
     function formatAwsException ($e) {
         return sprintf("<p><b>Amazon AWS Error:</b></p><pre style='white-space: pre-wrap'>%s</pre>", htmlspecialchars($e->getMessage()));
     }
 
-    function verifySMTP ($options) {        
+    function verifySMTP (&$options) {        
+        error_log("Verifying SMTP settings");
+        $options["_smtp_password"] = $this->getSMTPPassword($options['password']);
         $this->setEmailOptions($options);
         $this->setMailCallbacks();
         add_action("wp_mail_failed", array(&$this, "wpErrorException"));
         try {
             wp_mail("success@simulator.amazonses.com", "Test", "Test");
+            $options['_smtp_ok'] = 1;
         }
         catch (\Aws\Exception\AwsException $e) {
             throw $e;  
