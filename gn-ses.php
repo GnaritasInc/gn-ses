@@ -7,7 +7,7 @@
  */
 
 require_once("vendor/autoload.php");
-require_once("classes/gn_PluginDB.class.php");
+require_once("classes/gn_BasePluginDB.class.php");
 require_once("classes/gn_CSVWriter.class.php");
 require_once("classes/SesData.php");
 require_once("classes/Ses.php");

@@ -2,7 +2,7 @@
 
 namespace gnaritas\ses;
 
-class SesData extends \gn_PluginDB
+class SesData extends \gn_BasePluginDB
 {
     function __construct () {
         parent::__construct("gnses");
