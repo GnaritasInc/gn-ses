@@ -2,7 +2,7 @@
 
 namespace gnaritas\ses;
 
-class NotificationListTable extends \WP_List_Table
+class NotificationListTable extends WP_List_Table
 {
     public $plugin;
     public static $filterKeys = array("date_start", "date_end", "notification_type", "filter_email", "bounce_type");

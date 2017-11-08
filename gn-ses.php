@@ -7,16 +7,12 @@
  */
 
 require_once("vendor/autoload.php");
+require_once("classes/gn-wp-list-table.php");
 require_once("classes/gn_BasePluginDB.class.php");
 require_once("classes/gn_CSVWriter.class.php");
 require_once("classes/SesData.php");
 require_once("classes/Ses.php");
 require_once("classes/GenericAdminPage.php");
-
-if( ! class_exists( 'WP_List_Table' ) ) {
-    require_once( ABSPATH . 'wp-admin/includes/class-wp-list-table.php' );
-}
-
 require_once("classes/NotificationListTable.php");
 
 
