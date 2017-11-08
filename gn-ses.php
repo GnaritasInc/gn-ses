@@ -3,6 +3,7 @@
  * Plugin Name: Gnaritas Amazon SES
  * Description: Sends WordPress email using Amazon SES and automatically handles bounces and complaints.
  * Author: Gnaritas, Inc.
+ * Author URI: http://gnaritas.com
  * 
  */
 
