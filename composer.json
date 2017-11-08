@@ -1,6 +1,5 @@
 {
     "require": {
-        "voceconnect/voce-settings-api": "^0.5.4",
         "aws/aws-sdk-php": "^3.36",
         "aws/aws-php-sns-message-validator": "^1.4"
     }

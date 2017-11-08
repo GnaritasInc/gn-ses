@@ -2,7 +2,7 @@
 
 namespace gnaritas\ses;
 
-class GenericAdminPage extends \Voce_Settings_Page
+class GenericAdminPage extends Voce_Settings_Page
 {    
     public $template;
     public $plugin;

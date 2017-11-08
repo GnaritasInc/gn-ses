@@ -8,6 +8,7 @@
 
 require_once("vendor/autoload.php");
 require_once("classes/gn-wp-list-table.php");
+require_once("classes/voce-settings-api/voce-settings-api.php");
 require_once("classes/gn_BasePluginDB.class.php");
 require_once("classes/gn_CSVWriter.class.php");
 require_once("classes/SesData.php");

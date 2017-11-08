@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "79e4463048f13cf60758ce7091dc1ae8",
+    "content-hash": "adb4aea9cc609aa44e2f415b1dcd441a",
     "packages": [
         {
             "name": "aws/aws-php-sns-message-validator",
@@ -424,39 +424,6 @@
                 "response"
             ],
             "time": "2016-08-06T14:39:51+00:00"
-        },
-        {
-            "name": "voceconnect/voce-settings-api",
-            "version": "0.5.4",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/voceconnect/voce-settings-api.git",
-                "reference": "a1e22559d7779aa21d0ed9487aa8203f085bd2da"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/voceconnect/voce-settings-api/zipball/a1e22559d7779aa21d0ed9487aa8203f085bd2da",
-                "reference": "a1e22559d7779aa21d0ed9487aa8203f085bd2da",
-                "shasum": ""
-            },
-            "type": "library",
-            "autoload": {
-                "files": [
-                    "voce-settings-api.php"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "GPLv2+"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Pretty",
-                    "email": "mpretty@voceconnect.com"
-                }
-            ],
-            "description": "A simplification of the core WordPress settings API",
-            "time": "2017-01-18T19:12:33+00:00"
         }
     ],
     "packages-dev": [],
