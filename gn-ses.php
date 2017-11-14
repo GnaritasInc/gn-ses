@@ -8,6 +8,8 @@
  * 
  */
 
+if ( ! defined( 'ABSPATH' ) ) exit();
+
 require_once("vendor/autoload.php");
 require_once("classes/gn-wp-list-table.php");
 require_once("classes/voce-settings-api/voce-settings-api.php");
