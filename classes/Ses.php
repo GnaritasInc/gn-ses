@@ -92,7 +92,7 @@ class Ses
             $this->adminNotice("Not handling bounces and complaints.", "warning");
         }
 
-        if ($this->getOption("suppress_bounce")) {
+        if ($this->getOption("_smtp_ok") && $this->getOption("suppress_bounce")) {
             $this->adminNotice("Suppressing email to bounced/complained recipients.");
         }
         else {
@@ -120,7 +120,7 @@ class Ses
        $fields = array('host', 'port', 'username', '_smtp_password', 'from_address', 'from_name', 'suppress_bounce');
        $defaults = array_intersect_key($this->getOptions(), array_fill_keys($fields, ''));
 
-       $this->emailOptions = array_merge($defaults, array_intersect_key($options, $defaults));      
+       $this->emailOptions = array_merge($defaults, array_intersect_key($options, $defaults));       
     }
 
     function getEmailOptions () {
@@ -361,6 +361,7 @@ class Ses
         
         $this->setNewAwsOptions($newOptions);
         $this->doIdentityVerification($newOptions);
+
         $this->verifySMTP($newOptions);
 
         if ($bounceChanged || $identityChanged) {
@@ -376,7 +377,6 @@ class Ses
     }
 
     function setNewAwsOptions ($newOptions) {
-        error_log("Provisionally setting new AWS options.");
         $this->setAwsOptions(array(
             "credentials"=>array(
                 "key"=>$newOptions['username'],
@@ -388,7 +388,6 @@ class Ses
     
     function doIdentityVerification (&$newOptions) {
         $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
-        error_log("Verifying SES identity.");                
         $this->verifyAwsIdentity($newIdentity);
         $newOptions['_identity_verified'] = 1;        
     }
@@ -396,12 +395,10 @@ class Ses
     function updateBounceTracking (&$newOptions) {
         $newIdentity = $this->getSESIdentity($newOptions['from_address'], $newOptions['ses_identity']);
         if ($newOptions["track_bounce"]) {
-            error_log("Setting bounce handler");
             $topicARN = $this->setNotificationHandler($newIdentity);
             $newOptions["_topic_arn"] = $topicARN;
         }
         else {
-            error_log("Unsetting bounce handler");
             $topicARN = $this->getOption("_topic_arn");         
             $this->unsetNotificationHandler($newIdentity, $topicARN);
             $newOptions['_topic_arn'] = null;
@@ -413,8 +410,8 @@ class Ses
     }
 
     function verifySMTP (&$options) {        
-        error_log("Verifying SMTP settings");
-        $options["_smtp_password"] = $this->getSMTPPassword($options['password']);
+        $options["_smtp_password"] = $this->getSMTPPassword($options['password']);      
+
         $this->setEmailOptions($options);
         $this->setMailCallbacks();
         add_action("wp_mail_failed", array(&$this, "wpErrorException"));
@@ -552,7 +549,10 @@ class Ses
                 "from_address"=>get_option('admin_email'),
                 "from_name"=>"",
                 "ses_identity"=>"email",
-                "ses_region"=>""
+                "ses_region"=>"",
+                "_smtp_password"=>"",
+                "_smtp_ok"=>"",
+                "_topic_arn"=>""
             );
         }
 
@@ -615,7 +615,7 @@ class Ses
     }   
 
     function setMailerConfig ($phpmailer) {
-        $options = $this->getEmailOptions();
+        $options = $this->getEmailOptions();        
 
         $this->phpmailer = $phpmailer;
 
