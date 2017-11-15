@@ -41,6 +41,11 @@ class Ses
     }
 
     function deactivate () {
+        if ($topicARN = $this->getOption("_topic_arn")) {
+            $this->unsetNotificationHandler($this->getSESIdentity(), $topicARN);
+            $this->setOptions(array("track_bounce"=>0, "suppress_bounce"=>0, "_topic_arn"=>""));
+        }
+
         if ($this->getOption("remove_tables")) {
             delete_option($this->optionsKey);
             $this->data->dropTables();
@@ -364,11 +369,11 @@ class Ses
 
         $this->verifySMTP($newOptions);
 
-        if ($bounceChanged || $identityChanged) {
+        if ($bounceChanged || $identityChanged || ($newOptions['track_bounce'] && !$oldOptions['_topic_arn'])) {
             $this->updateBounceTracking($newOptions);
         }        
 
-        if ($oldOptions["track_bounce"] && ($awsOptionsChanged || $identityChanged)) {
+        if ($oldOptions["track_bounce"] && $oldOptions["username"] && ($awsOptionsChanged || $identityChanged)) {
             $this->warnings[] = "Note: You may have to manually unset bounce/complaint handling for your old identity.";
         }
         
@@ -398,8 +403,7 @@ class Ses
             $topicARN = $this->setNotificationHandler($newIdentity);
             $newOptions["_topic_arn"] = $topicARN;
         }
-        else {
-            $topicARN = $this->getOption("_topic_arn");         
+        elseif ($topicARN = $this->getOption("_topic_arn"))  {
             $this->unsetNotificationHandler($newIdentity, $topicARN);
             $newOptions['_topic_arn'] = null;
         }
