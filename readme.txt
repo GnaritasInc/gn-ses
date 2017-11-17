@@ -6,6 +6,7 @@ Tested up to: 4.8.3
 Requires PHP: 5.5
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
+Stable tag: 0.1.2
 
 WordPress plugin for Amazon SES
 
@@ -101,7 +102,7 @@ If you're unfamiliar with IAM, you can use the following recommended procedure t
 	* Enter a name for the policy (e.g. "SesSendAndSetNotifications") and an optional description
 	* Enter the following JSON policy definition under "Policy Document":
 	
-	```json
+	~~~~
 	{
 	    "Version": "2012-10-17",
 	    "Statement": [
@@ -131,7 +132,7 @@ If you're unfamiliar with IAM, you can use the following recommended procedure t
 	        }
 	    ]
 	}
-	```
+	~~~~
 	
 	* Click "Create Policy"
 
